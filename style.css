@@ -1,0 +1,68 @@
+/* The sidebar menu */
+.sidenav {
+  height: 100%; /* Full-height: remove this if you want "auto" height */
+  width: 250px; /* Set the width of the sidebar */
+  position: fixed; /* Fixed Sidebar (stay in place on scroll) */
+  z-index: 1; /* Stay on top */
+  top: 0; /* Stay at the top */
+  left: 0;
+  background-color: #111; /* Black */
+  overflow-x: hidden; /* Disable horizontal scroll */
+  padding-top: 20px;
+}
+
+/* The navigation menu links */
+.sidenav a {
+  padding: 6px 8px 6px 16px;
+  text-decoration: none;
+  font-size: 25px;
+  color: #818181;
+  display: block;
+}
+
+/* When you mouse over the navigation links, change their color */
+.sidenav a:hover {
+  color: #f1f1f1;
+}
+
+/* Style page content */
+.main {
+  margin-left: 250px; /* Same as the width of the sidebar */
+  padding: 0px 10px;
+}
+
+/* On smaller screens, where height is less than 450px, change the style of the sidebar (less padding and a smaller font size) */
+@media screen and (max-height: 450px) {
+  .sidenav {padding-top: 15px;}
+  .sidenav a {font-size: 18px;}
+}
+
+input[type="search"] {
+  position: fixed;
+  top: 20px;   /* Distance from the top */
+  right: 20px; /* Distance from the right */
+}
+
+.line-container {
+  display: flex;
+  align-items: center;       /* Centers the lines vertically with the text */
+  margin-left: 250px;        /* Pushes the entire layout past your sidebar */
+  padding: 0 20px;           /* Optional: Adds space from the sidebar and right screen edge */
+  width: calc(100% - 250px); /* Ensures the container takes up only the remaining screen width */
+  box-sizing: border-box;    /* Prevents layout breaking from padding */
+  margin-top: 50px;
+}
+
+.line {
+  flex-grow: 1;              /* Forces the lines to stretch and fill all available space */
+  height: 2px;               /* Sets the thickness of the line */
+  background-color: #000000;    /* Sets the color of the line (gray) */
+}
+
+.text {
+  padding: 0 15px;           /* Adds space between the text and the lines so they don't touch */
+  white-space: nowrap;       /* Prevents the text from breaking into two lines */
+  color: #333;               /* Sets text color */
+  font-family: sans-serif;   /* Sets font style */
+  font-size: 30px;
+}
