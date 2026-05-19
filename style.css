@@ -6,23 +6,23 @@
   z-index: 1; /* Stay on top */
   top: 0; /* Stay at the top */
   left: 0;
-  background-color: #111; /* Black */
+  background-color: #ffffff; /* Black */
   overflow-x: hidden; /* Disable horizontal scroll */
-  padding-top: 20px;
+  padding-top: 75px;
 }
 
 /* The navigation menu links */
 .sidenav a {
-  padding: 6px 8px 6px 16px;
+  padding: 30px 8px 30px 16px;
   text-decoration: none;
-  font-size: 25px;
+  font-size: 30px;
   color: #818181;
   display: block;
 }
 
 /* When you mouse over the navigation links, change their color */
 .sidenav a:hover {
-  color: #f1f1f1;
+  color: #000000;
 }
 
 /* Style page content */
@@ -66,3 +66,148 @@ input[type="search"] {
   font-family: sans-serif;   /* Sets font style */
   font-size: 30px;
 }
+
+/* ==========================================
+   Forced Left Corner Box Button (Absolute)
+   ========================================== */
+   .add-period-box-btn-absolute {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    
+    /* This breaks the button out of any broken layout containers */
+    position: absolute; 
+    top: 120px;       /* Adjust this number up or down to place it perfectly below your title line */
+    left: 300px;      /* Adjust this number to line it up perfectly with the left edge of your title line */
+    
+    width: 90px;
+    height: 90px;
+    background-color: transparent;
+    color: #000000;
+    border: 1px solid #000000;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;      /* Keeps it on top of the background */
+  }
+  
+  .add-period-box-btn-absolute:hover {
+    color: #ffffff;
+    background-color: #000000;
+  }
+  
+  .box-plus-icon {
+    font-size: 1.6rem;
+    font-weight: 300;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  
+  .box-btn-text {
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+  }
+  
+  /* ==========================================
+     Pop-up Modal Panel (Black & White Theme)
+     ========================================== */
+  .modal-overlay {
+    display: none; 
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); 
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .modal-content {
+    background-color: #ffffff;
+    color: #000000;
+    padding: 30px;
+    border-radius: 8px;
+    width: 400px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e0e0e0;
+  }
+  
+  .modal-content h3 {
+    margin: 0 0 10px 0;
+    font-family: inherit;
+    font-size: 1.4rem;
+    font-weight: 500;
+  }
+  
+  .modal-divider {
+    border: 0;
+    border-top: 1px solid #000000;
+    margin-bottom: 20px;
+  }
+  
+  .modal-content label {
+    display: block;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  
+  .modal-content input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 25px;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 1rem;
+  }
+  
+  .modal-content input[type="text"]:focus {
+    outline: none;
+    border-color: #000000;
+  }
+  
+  /* Modal Action Buttons */
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+  
+  .modal-btn {
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s ease;
+  }
+  
+  .cancel-btn {
+    background-color: transparent;
+    color: #666666;
+    border: 1px solid #cccccc;
+  }
+  
+  .cancel-btn:hover {
+    color: #000000;
+    border-color: #000000;
+  }
+  
+  .save-btn {
+    background-color: #000000;
+    color: #ffffff;
+    border: 1px solid #000000;
+  }
+  
+  .save-btn:hover {
+    background-color: #333333;
+    border-color: #333333;
+  }

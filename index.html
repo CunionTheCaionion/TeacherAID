@@ -14,8 +14,7 @@
     <a href="#">Account</a>
     <a href="#">Settings</a>
     <a href="#">My Students</a>
-    <a href="#">School Dashboard</a>
-    <a href="#">Add Period</a>
+    <a href="#">Dashboard</a>
   </div>
   
   <!-- Page content -->
@@ -28,6 +27,50 @@
     <span class="text">My Periods</span>
     <span class="line right-line"></span>
   </div>
+
+<!--Add period and popup window-->>
+<button class="add-period-box-btn-absolute" onclick="toggleModal(true)">
+  <span class="box-plus-icon">+</span>
+  <span class="box-btn-text">Add Period</span>
+</button>
+
+<div id="periodModal" class="modal-overlay">
+  <div class="modal-content">
+    <h3>Create New Period</h3>
+    <hr class="modal-divider">
+    
+    <label for="periodName">Period Name</label>
+    <input type="text" id="periodName" placeholder="e.g., 1st Period" autocomplete="off">
+    
+    <div class="modal-actions">
+      <button class="modal-btn cancel-btn" onclick="toggleModal(false)">Cancel</button>
+      <button class="modal-btn save-btn" onclick="savePeriod()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleModal(show) {
+    const modal = document.getElementById('periodModal');
+    if (show) {
+      modal.style.display = 'flex';
+      document.getElementById('periodName').focus();
+    } else {
+      modal.style.display = 'none';
+      document.getElementById('periodName').value = '';
+    }
+  }
+
+  function savePeriod() {
+    const periodName = document.getElementById('periodName').value;
+    if (periodName.trim() === '') {
+      alert('Please enter a period name.');
+      return;
+    }
+    console.log("New period created:", periodName);
+    toggleModal(false);
+  }
+</script>
 
 </body>
 </html>
