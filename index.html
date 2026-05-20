@@ -9,15 +9,13 @@
     <input type="search" class="search-bar" placeholder="Search Students">
 
     <link rel="stylesheet" href="style.css">
-    <!-- Side navigation -->
-<div class="sidenav">
+    <div class="sidenav">
     <a href="#">Account</a>
     <a href="#">Settings</a>
     <a href="#">My Students</a>
     <a href="#">Dashboard</a>
   </div>
   
-  <!-- Page content -->
   <div class="main">
     
   </div>
@@ -28,48 +26,167 @@
     <span class="line right-line"></span>
   </div>
 
-<!--Add period and popup window-->>
-<button class="add-period-box-btn-absolute" onclick="toggleModal(true)">
-  <span class="box-plus-icon">+</span>
-  <span class="box-btn-text">Add Period</span>
-</button>
+<div id="periodsDisplayContainer" class="periods-grid"></div>
 
 <div id="periodModal" class="modal-overlay">
   <div class="modal-content">
-    <h3>Create New Period</h3>
+    <h3 id="modalTitle">Create New Period</h3>
     <hr class="modal-divider">
+    
+    <input type="hidden" id="editingPeriodId" value="">
     
     <label for="periodName">Period Name</label>
     <input type="text" id="periodName" placeholder="e.g., 1st Period" autocomplete="off">
     
+    <label>Select Students to Add</label>
+    <div id="studentCheckboxContainer" class="student-checkbox-list">
+      </div>
+    
     <div class="modal-actions">
-      <button class="modal-btn cancel-btn" onclick="toggleModal(false)">Cancel</button>
+      <button class="modal-btn cancel-btn" onclick="closeModal()">Cancel</button>
       <button class="modal-btn save-btn" onclick="savePeriod()">Save</button>
     </div>
   </div>
 </div>
 
 <script>
-  function toggleModal(show) {
-    const modal = document.getElementById('periodModal');
-    if (show) {
-      modal.style.display = 'flex';
-      document.getElementById('periodName').focus();
-    } else {
-      modal.style.display = 'none';
-      document.getElementById('periodName').value = '';
-    }
+  // Your Master Student Database (Only you can modify this list)
+  const masterStudentDatabase = [
+    { id: "s1", name: "Alex Johnson" },
+    { id: "s2", name: "Brian Smith" },
+    { id: "s3", name: "Chloe Davis" },
+    { id: "s4", name: "Daniel Martinez" },
+    { id: "s5", name: "Emily Wilson" }
+  ];
+
+  // Array tracking the saved periods
+  let savedPeriods = [];
+
+  // Renders the master student checklist inside your modal panel
+  function loadStudentChecklist(selectedStudentIds = []) {
+    const container = document.getElementById('studentCheckboxContainer');
+    container.innerHTML = '';
+    
+    masterStudentDatabase.forEach(student => {
+      const isChecked = selectedStudentIds.includes(student.id) ? 'checked' : '';
+      const label = document.createElement('label');
+      label.className = 'student-checkbox-item';
+      label.innerHTML = `
+        <input type="checkbox" value="${student.id}" data-name="${student.name}" ${isChecked}>
+        <span>${student.name}</span>
+      `;
+      container.appendChild(label);
+    });
   }
 
+  // Opens the pop-up modal for creating a fresh new period entry
+  function openModalForCreate() {
+    document.getElementById('modalTitle').innerText = "Create New Period";
+    document.getElementById('editingPeriodId').value = ""; 
+    document.getElementById('periodName').value = "";
+    document.getElementById('periodModal').style.display = 'flex';
+    document.getElementById('periodName').focus();
+    loadStudentChecklist(); 
+  }
+
+  // Opens the pop-up modal loaded with info to update an existing class period
+  function openModalForEdit(periodId) {
+    const period = savedPeriods.find(p => p.id === periodId);
+    if (!period) return;
+
+    document.getElementById('modalTitle').innerText = "Edit Period";
+    document.getElementById('editingPeriodId').value = period.id;
+    document.getElementById('periodName').value = period.name;
+    document.getElementById('periodModal').style.display = 'flex';
+    document.getElementById('periodName').focus();
+    
+    loadStudentChecklist(period.studentIds);
+  }
+
+  function closeModal() {
+    document.getElementById('periodModal').style.display = 'none';
+  }
+
+  // Handles both processing new creations or committing your current modifications
   function savePeriod() {
-    const periodName = document.getElementById('periodName').value;
-    if (periodName.trim() === '') {
+    const periodName = document.getElementById('periodName').value.trim();
+    const editingId = document.getElementById('editingPeriodId').value;
+
+    if (periodName === '') {
       alert('Please enter a period name.');
       return;
     }
-    console.log("New period created:", periodName);
-    toggleModal(false);
+    
+    const checkedBoxes = document.querySelectorAll('#studentCheckboxContainer input[type="checkbox"]:checked');
+    const selectedStudentIds = Array.from(checkedBoxes).map(box => box.value);
+
+    if (editingId) {
+      // EDIT MODE: Update existing profile entry
+      const periodIndex = savedPeriods.findIndex(p => p.id === editingId);
+      if (periodIndex !== -1) {
+        savedPeriods[periodIndex].name = periodName;
+        savedPeriods[periodIndex].studentIds = selectedStudentIds;
+      }
+    } else {
+      // CREATE MODE: Generate a brand new layout profile
+      const newPeriod = {
+        id: 'per_' + Date.now(),
+        name: periodName,
+        studentIds: selectedStudentIds
+      };
+      savedPeriods.push(newPeriod);
+    }
+
+    renderPeriodsDashboard();
+    closeModal();
   }
+
+  // Permanently drops a period configuration from display
+  function deletePeriod(periodId) {
+    if (confirm("Are you sure you want to delete this period?")) {
+      savedPeriods = savedPeriods.filter(p => p.id !== periodId);
+      renderPeriodsDashboard();
+    }
+  }
+
+  // Refreshes the visual workspace layout underneath your divider header line
+  function renderPeriodsDashboard() {
+    const displayContainer = document.getElementById('periodsDisplayContainer');
+    displayContainer.innerHTML = '';
+
+    // First, append all current active period profile cards
+    savedPeriods.forEach(period => {
+      const card = document.createElement('div');
+      card.className = 'period-dashboard-card';
+      const studentCount = period.studentIds.length;
+
+      card.innerHTML = `
+        <div class="card-header">
+          <h4>${period.name}</h4>
+          <span class="student-count-badge">${studentCount} Students</span>
+        </div>
+        <div class="card-actions">
+          <button class="action-link-btn edit-link" onclick="openModalForEdit('${period.id}')">Edit</button>
+          <button class="action-link-btn delete-link" onclick="deletePeriod('${period.id}')">Delete</button>
+        </div>
+      `;
+      displayContainer.appendChild(card);
+    });
+
+    // Next, cleanly append the square "Add Period" button layout block right after the cards
+    const buttonCard = document.createElement('div');
+    buttonCard.className = 'add-button-grid-item';
+    buttonCard.innerHTML = `
+      <button class="add-period-box-btn-inline" onclick="openModalForCreate()">
+        <span class="box-plus-icon">+</span>
+        <span class="box-btn-text">Add Period</span>
+      </button>
+    `;
+    displayContainer.appendChild(buttonCard);
+  }
+
+  // Sets up layout view immediately when page mounts
+  renderPeriodsDashboard();
 </script>
 
 </body>
