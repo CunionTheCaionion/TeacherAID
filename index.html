@@ -28,20 +28,44 @@
 
         <link rel="stylesheet" href="style.css">
         <div class="sidenav">
-            <a href="#" onclick="exitToDashboard()">Home</a>
-            <a href="#">Account</a>
-            <a href="#">Settings</a>
-            <a href="#">My Students</a>
-            <a href="#" onclick="exitToDashboard()">Dashboard</a>
+            <a href="#" onclick="switchView('dashboardView')">Home</a>
+            <a href="#" onclick="switchView('accountView')">Account</a>
+            <a href="#" onclick="switchView('settingsView')">Settings</a>
+            <a href="#" onclick="switchView('myStudentsView')">My Students</a>
+            <a href="#" onclick="switchView('dashboardView')">Dashboard</a>
         </div>
         
-        <div id="dashboardView">
+        <div id="dashboardView" class="app-view">
             <div class="line-container">
                 <span class="line left-line"></span>
                 <span class="text">My Periods</span>
                 <span class="line right-line"></span>
             </div>
             <div id="periodsDisplayContainer" class="periods-grid"></div>
+        </div>
+
+        <div id="accountView" class="app-view" style="display: none;">
+            <div class="line-container">
+                <span class="line left-line"></span>
+                <span class="text">Account</span>
+                <span class="line right-line"></span>
+            </div>
+        </div>
+
+        <div id="settingsView" class="app-view" style="display: none;">
+            <div class="line-container">
+                <span class="line left-line"></span>
+                <span class="text">Settings</span>
+                <span class="line right-line"></span>
+            </div>
+        </div>
+
+        <div id="myStudentsView" class="app-view" style="display: none;">
+            <div class="line-container">
+                <span class="line left-line"></span>
+                <span class="text">My Students</span>
+                <span class="line right-line"></span>
+            </div>
         </div>
 
         <div id="trackingView" class="tracking-screen-container" style="display: none;">
@@ -134,6 +158,28 @@
     await loadStudentsFromGoogleSheet();
     await loadDataFromSupabase();
     renderPeriodsDashboard();
+  }
+
+  /* ==========================================================================
+     NAVIGATION ENGINE FOR VIEWS
+     ========================================================================= */
+  function switchView(viewId) {
+    // Clear search bar input when toggling tabs
+    document.getElementById('studentSearchInput').value = '';
+    
+    // Hide all containers
+    const views = document.querySelectorAll('.app-view');
+    views.forEach(v => v.style.display = 'none');
+    
+    document.getElementById('trackingView').style.display = 'none';
+    document.getElementById('searchResultView').style.display = 'none';
+    
+    // Show selected view
+    document.getElementById(viewId).style.display = 'block';
+    
+    if (viewId === 'dashboardView') {
+        renderPeriodsDashboard();
+    }
   }
 
   /* ==========================================================================
@@ -349,7 +395,9 @@
     document.getElementById('trackingPeriodTitle').innerText = period.name;
     document.getElementById('studentSearchInput').value = '';
 
-    document.getElementById('dashboardView').style.display = 'none';
+    const views = document.querySelectorAll('.app-view');
+    views.forEach(v => v.style.display = 'none');
+    
     document.getElementById('searchResultView').style.display = 'none';
     document.getElementById('trackingView').style.display = 'block';
 
@@ -364,6 +412,9 @@
     activePeriodId = null;
     preSearchScreenState = 'dashboard';
     document.getElementById('studentSearchInput').value = '';
+
+    const views = document.querySelectorAll('.app-view');
+    views.forEach(v => v.style.display = 'none');
 
     document.getElementById('trackingView').style.display = 'none';
     document.getElementById('searchResultView').style.display = 'none';
@@ -443,7 +494,9 @@
       }
     }
 
-    document.getElementById('dashboardView').style.display = 'none';
+    const views = document.querySelectorAll('.app-view');
+    views.forEach(v => v.style.display = 'none');
+    
     document.getElementById('trackingView').style.display = 'none';
     document.getElementById('searchResultView').style.display = 'block';
 
