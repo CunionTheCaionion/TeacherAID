@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Classroom Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="start-page-body">
@@ -13,13 +14,10 @@
             <h1 class="start-app-title">Classroom Tracker</h1>
             <p class="start-app-subtitle">Track, manage, and optimize student runtime metrics seamlessly.</p>
         </div>
-        
         <hr class="start-divider">
-        
         <div class="start-card-actions" style="display: flex; justify-content: center; margin-bottom: 30px;">
             <div id="googleButtonDiv"></div>
         </div>
-        
         <div class="start-card-footer">
             <p>Authorized access only. Secure cloud database environment.</p>
         </div>
@@ -42,7 +40,6 @@
                 <span class="text">My Periods</span>
                 <span class="line right-line"></span>
             </div>
-
             <div id="periodsDisplayContainer" class="periods-grid"></div>
         </div>
 
@@ -51,7 +48,6 @@
                 <button class="back-dashboard-btn" onclick="exitToDashboard()">← Back to Dashboard</button>
                 <h2 id="trackingPeriodTitle" class="tracking-period-title">Period Name</h2>
             </div>
-            
             <div id="trackingRosterContainer" class="student-roster-list"></div>
         </div>
 
@@ -60,7 +56,6 @@
                 <button class="back-dashboard-btn" onclick="clearSearchAndReturn()">✕ Clear Search</button>
                 <h2 class="tracking-period-title">Global Student Search</h2>
             </div>
-            
             <div id="searchResultsContainer" class="student-roster-list"></div>
         </div>
 
@@ -68,15 +63,11 @@
             <div class="modal-content">
                 <h3 id="modalTitle">Create New Period</h3>
                 <hr class="modal-divider">
-                
                 <input type="hidden" id="editingPeriodId" value="">
-                
                 <label for="periodName">Period Name</label>
                 <input type="text" id="periodName" placeholder="e.g., 1st Period" autocomplete="off">
-                
                 <label>Select Students to Add</label>
                 <div id="studentCheckboxContainer" class="student-checkbox-list"></div>
-                
                 <div class="modal-actions">
                     <button class="modal-btn cancel-btn" onclick="closeModal()">Cancel</button>
                     <button class="modal-btn save-btn" onclick="savePeriod()">Save</button>
@@ -87,33 +78,61 @@
 
 <script>
   /* ==========================================================================
+     SUPABASE CONNECTION SETUP
+     ========================================================================= */
+  const SUPABASE_URL = "https://zipxcbebimecwhppsinz.supabase.co"; 
+  const SUPABASE_ANON_KEY = "sb_publishable_yBu1oTqbUVj-VJOba8zuyg_Sff_F9vj";
+  
+  // Changed variable name here to avoid collision with the CDN library
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let savedPeriods = [];
+  let currentUserUid = null;
+  let activeTimers = {}; 
+  let activePeriodId = null;
+  let preSearchScreenState = 'dashboard'; 
+
+  /* ==========================================================================
      OFFICIAL GOOGLE AUTHENTICATION INITIALIZATION
      ========================================================================= */
-  window.onload = function () {
-    google.accounts.id.initialize({
-      client_id: "502418828163-e3m3oehkr11m1o1l4808jm1qd72vi7f7.apps.googleusercontent.com",
-      callback: handleCredentialResponse
-    });
-    
-    // Renders the standard official button inside the targeted wrapper element
-    google.accounts.id.renderButton(
-      document.getElementById("googleButtonDiv"),
-      { theme: "outline", size: "large", width: "340" } 
-    );
-  };
+  window.addEventListener('load', function () {
+    if (window.google && google.accounts && google.accounts.id) {
+        google.accounts.id.initialize({
+          client_id: "502418828163-e3m3oehkr11m1o1l4808jm1qd72vi7f7.apps.googleusercontent.com",
+          callback: handleCredentialResponse
+        });
+        
+        google.accounts.id.renderButton(
+          document.getElementById("googleButtonDiv"),
+          { theme: "outline", size: "large", width: "340" } 
+        );
+    }
+  });
 
   // Triggers automatically upon a valid user sign-in event from Google
-  function handleCredentialResponse(response) {
-    // Hide landing view, clean the body background setup
+  async function handleCredentialResponse(response) {
+    const { data, error } = await supabaseClient.auth.signInWithIdToken({
+      provider: 'google',
+      token: response.credential
+    });
+
+    if (error) {
+      alert("Database Authentication Failed: " + error.message);
+      return;
+    }
+
+    currentUserUid = data.user.id;
+
     document.getElementById('startPageLanding').style.display = 'none';
     document.body.classList.remove('start-page-body');
     
-    // Unveil your workspace and load data
     document.getElementById('mainApplicationWorkspace').style.display = 'block';
+
+    await loadDataFromSupabase();
     renderPeriodsDashboard();
   }
 
-  // Your Master Student Database
+  // Master Student Database
   const masterStudentDatabase = [
     { id: "s1", name: "Alex Johnson" },
     { id: "s2", name: "Brian Smith" },
@@ -122,17 +141,47 @@
     { id: "s5", name: "Emily Wilson" }
   ];
 
-  // Array tracking the saved periods
-  let savedPeriods = [];
-  
-  // Object tracking live running interval timers for students active on screen
-  let activeTimers = {}; 
-  let activePeriodId = null;
-  
-  // Variable to remember where the user was before a search overrode the screen view
-  let preSearchScreenState = 'dashboard'; 
+  /* ==========================================================================
+     CLOUD DATA SYNC ENGINES
+     ========================================================================= */
+  async function loadDataFromSupabase() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('student_periods')
+        .select('periods_data')
+        .eq('user_id', currentUserUid)
+        .single();
 
-  // Renders the master student checklist inside your modal panel
+      if (error && error.code !== 'PGRST116') { 
+        console.error("Error reading cloud data:", error);
+      }
+
+      if (data && data.periods_data) {
+        savedPeriods = data.periods_data;
+      } else {
+        savedPeriods = [];
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function saveToSupabase() {
+    if (!currentUserUid) return;
+    
+    const { error } = await supabaseClient
+      .from('student_periods')
+      .upsert({ 
+        user_id: currentUserUid, 
+        periods_data: savedPeriods,
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error("Could not sync data online:", error.message);
+    }
+  }
+
   function loadStudentChecklist(selectedStudentIds = []) {
     const container = document.getElementById('studentCheckboxContainer');
     container.innerHTML = '';
@@ -150,7 +199,6 @@
     });
   }
 
-  // Opens the pop-up modal for creating a fresh new period entry
   function openModalForCreate() {
     document.getElementById('modalTitle').innerText = "Create New Period";
     document.getElementById('editingPeriodId').value = ""; 
@@ -160,7 +208,6 @@
     loadStudentChecklist(); 
   }
 
-  // Opens the pop-up modal loaded with info to update an existing class period
   function openModalForEdit(event, periodId) {
     event.stopPropagation(); 
     const period = savedPeriods.find(p => p.id === periodId);
@@ -179,8 +226,7 @@
     document.getElementById('periodModal').style.display = 'none';
   }
 
-  // Handles both processing new creations or committing modifications
-  function savePeriod() {
+  async function savePeriod() {
     const periodName = document.getElementById('periodName').value.trim();
     const editingId = document.getElementById('editingPeriodId').value;
 
@@ -193,14 +239,12 @@
     const selectedStudentIds = Array.from(checkedBoxes).map(box => box.value);
 
     if (editingId) {
-      // EDIT MODE: Update existing profile entry
       const periodIndex = savedPeriods.findIndex(p => p.id === editingId);
       if (periodIndex !== -1) {
         savedPeriods[periodIndex].name = periodName;
         savedPeriods[periodIndex].studentIds = selectedStudentIds;
       }
     } else {
-      // CREATE MODE: Generate a brand new layout profile
       const newPeriod = {
         id: 'per_' + Date.now(),
         name: periodName,
@@ -212,18 +256,18 @@
 
     renderPeriodsDashboard();
     closeModal();
+    await saveToSupabase(); 
   }
 
-  // Permanently drops a period configuration from display
-  function deletePeriod(event, periodId) {
+  async function deletePeriod(event, periodId) {
     event.stopPropagation(); 
     if (confirm("Are you sure you want to delete this period?")) {
       savedPeriods = savedPeriods.filter(p => p.id !== periodId);
       renderPeriodsDashboard();
+      await saveToSupabase(); 
     }
   }
 
-  // Refreshes the visual workspace layout underneath your divider header line
   function renderPeriodsDashboard() {
     const displayContainer = document.getElementById('periodsDisplayContainer');
     displayContainer.innerHTML = '';
@@ -248,7 +292,6 @@
       displayContainer.appendChild(card);
     });
 
-    // Cleanly append the square "Add Period" button layout block right after the cards
     const buttonCard = document.createElement('div');
     buttonCard.className = 'add-button-grid-item';
     buttonCard.innerHTML = `
@@ -263,7 +306,6 @@
   /* ==========================================================================
      TIMING TRACKING CONTROLLER LOGIC
      ========================================================================= */
-  
   function launchTrackingScreen(periodId) {
     const period = savedPeriods.find(p => p.id === periodId);
     if (!period) return;
@@ -271,10 +313,8 @@
     activePeriodId = periodId;
     preSearchScreenState = 'tracking';
     document.getElementById('trackingPeriodTitle').innerText = period.name;
-    
     document.getElementById('studentSearchInput').value = '';
 
-    // Toggle screens
     document.getElementById('dashboardView').style.display = 'none';
     document.getElementById('searchResultView').style.display = 'none';
     document.getElementById('trackingView').style.display = 'block';
@@ -289,10 +329,8 @@
     activeTimers = {};
     activePeriodId = null;
     preSearchScreenState = 'dashboard';
-
     document.getElementById('studentSearchInput').value = '';
 
-    // Toggle screens back
     document.getElementById('trackingView').style.display = 'none';
     document.getElementById('searchResultView').style.display = 'none';
     document.getElementById('dashboardView').style.display = 'block';
@@ -339,7 +377,7 @@
   }
 
   /* ==========================================================================
-     SEPARATE WINDOW SELECTION & GLOBAL SEARCH FILTER ENGINE
+     GLOBAL SEARCH FILTER ENGINE
      ========================================================================= */
   function executeGlobalSearch() {
     const query = document.getElementById('studentSearchInput').value.trim().toLowerCase();
@@ -430,7 +468,6 @@
     const button = document.getElementById(`btn-toggle-${studentId}`);
 
     if (!state.isRunning) {
-      // START TIMER
       state.isRunning = true;
       state.lastStartTime = Date.now() - state.elapsedMs;
       button.innerText = "Pause";
@@ -440,11 +477,11 @@
       const intervalId = setInterval(() => {
         state.elapsedMs = Date.now() - state.lastStartTime;
         document.getElementById(`display-${studentId}`).innerText = formatMsToTime(state.elapsedMs);
+        saveToSupabase(); 
       }, 100);
 
       activeTimers[studentId] = { intervalId: intervalId };
     } else {
-      // PAUSE TIMER
       state.isRunning = false;
       clearInterval(activeTimers[studentId].intervalId);
       delete activeTimers[studentId];
@@ -452,6 +489,7 @@
       button.innerText = "Start";
       button.classList.remove('pause-btn');
       button.classList.add('start-btn');
+      saveToSupabase();
     }
   }
 
@@ -467,6 +505,7 @@
     const intervalId = setInterval(() => {
       state.elapsedMs = Date.now() - state.lastStartTime;
       document.getElementById(`display-${studentId}`).innerText = formatMsToTime(state.elapsedMs);
+      saveToSupabase();
     }, 100);
 
     activeTimers[studentId] = { intervalId: intervalId };
@@ -490,6 +529,7 @@
     button.innerText = "Start";
     button.classList.remove('pause-btn');
     button.classList.add('start-btn');
+    saveToSupabase();
   }
 
   function formatMsToTime(ms) {
