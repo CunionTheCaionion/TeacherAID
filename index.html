@@ -32,6 +32,7 @@
             <a href="#" onclick="switchView('accountView')">Account</a>
             <a href="#" onclick="switchView('settingsView')">Settings</a>
             <a href="#" onclick="switchView('myStudentsView')">My Students</a>
+            <a href="#" onclick="showReleasedStudentsView()">Released Students</a>
             <a href="#" onclick="switchView('dashboardView')">Dashboard</a>
         </div>
         
@@ -68,7 +69,16 @@
             </div>
         </div>
 
-        <div id="trackingView" class="tracking-screen-container" style="display: none;">
+        <div id="releasedStudentsView" class="app-view" style="display: none;">
+            <div class="line-container">
+                <span class="line left-line"></span>
+                <span class="text">Released Students</span>
+                <span class="line right-line"></span>
+            </div>
+            <div id="releasedStudentsContainer" class="student-roster-list"></div>
+        </div>
+
+        <div id="trackingView" class="app-view" style="display: none;">
             <div class="tracking-header">
                 <button class="back-dashboard-btn" onclick="exitToDashboard()">← Back to Dashboard</button>
                 <h2 id="trackingPeriodTitle" class="tracking-period-title">Period Name</h2>
@@ -76,7 +86,7 @@
             <div id="trackingRosterContainer" class="student-roster-list"></div>
         </div>
 
-        <div id="searchResultView" class="tracking-screen-container" style="display: none;">
+        <div id="searchResultView" class="app-view" style="display: none;">
             <div class="tracking-header">
                 <button class="back-dashboard-btn" onclick="clearSearchAndReturn()">✕ Clear Search</button>
                 <h2 class="tracking-period-title">Global Student Search</h2>
@@ -108,17 +118,18 @@
   const SUPABASE_URL = "https://zipxcbebimecwhppsinz.supabase.co"; 
   const SUPABASE_ANON_KEY = "sb_publishable_yBu1oTqbUVj-VJOba8zuyg_Sff_F9vj";
   
-  // TODO: PASTE YOUR GOOGLE SHEETS CSV LINK HERE!
   const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEjSntfQqKHF0IMKgqz3ByZ_2OacOK8Y4k-faFK7ymjxv8AMWxcSfPsyyFyPOSfugQWAyD6yLnuhpq/pub?output=csv";
 
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  let masterStudentDatabase = []; // Populated dynamically from Google Sheet
+  let masterStudentDatabase = []; 
   let savedPeriods = [];
   let currentUserUid = null;
   let activeTimers = {}; 
   let activePeriodId = null;
   let preSearchScreenState = 'dashboard'; 
+  let realtimeChannel = null;
+  let globalUIIntervalId = null; // Clean, unified UI ticker loop
 
   /* ==========================================================================
      OFFICIAL GOOGLE AUTHENTICATION INITIALIZATION
@@ -154,9 +165,10 @@
     document.body.classList.remove('start-page-body');
     document.getElementById('mainApplicationWorkspace').style.display = 'block';
 
-    // Fetch master list from Google Sheet first, then load teacher data
     await loadStudentsFromGoogleSheet();
     await loadDataFromSupabase();
+    setupRealtimeSubscription();
+    startGlobalUITicker();
     renderPeriodsDashboard();
   }
 
@@ -164,22 +176,21 @@
      NAVIGATION ENGINE FOR VIEWS
      ========================================================================= */
   function switchView(viewId) {
-    // Clear search bar input when toggling tabs
     document.getElementById('studentSearchInput').value = '';
     
-    // Hide all containers
     const views = document.querySelectorAll('.app-view');
     views.forEach(v => v.style.display = 'none');
     
-    document.getElementById('trackingView').style.display = 'none';
-    document.getElementById('searchResultView').style.display = 'none';
-    
-    // Show selected view
     document.getElementById(viewId).style.display = 'block';
     
     if (viewId === 'dashboardView') {
         renderPeriodsDashboard();
     }
+  }
+
+  function showReleasedStudentsView() {
+    switchView('releasedStudentsView');
+    renderReleasedStudentsList();
   }
 
   /* ==========================================================================
@@ -199,11 +210,9 @@
       const response = await fetch(GOOGLE_SHEET_CSV_URL);
       const csvText = await response.text();
       
-      // Split by line breaks and process rows
       const lines = csvText.split(/\r?\n/);
       const parsedStudents = [];
       
-      // Start at 1 to skip header row ("Name")
       for (let i = 1; i < lines.length; i++) {
         const name = lines[i].trim();
         if (name) {
@@ -222,7 +231,7 @@
   }
 
   /* ==========================================================================
-     CLOUD DATA SYNC ENGINES
+     CLOUD DATA SYNC & REALTIME ENGINES
      ========================================================================= */
   async function loadDataFromSupabase() {
     try {
@@ -238,6 +247,15 @@
 
       if (data && data.periods_data) {
         savedPeriods = data.periods_data;
+        // Rehydrate internal tracking dictionary flags safely
+        savedPeriods.forEach(period => {
+          Object.keys(period.timerStates || {}).forEach(studentId => {
+            const state = period.timerStates[studentId];
+            if (state && state.isRunning) {
+              activeTimers[studentId] = true;
+            }
+          });
+        });
       } else {
         savedPeriods = [];
       }
@@ -259,6 +277,137 @@
 
     if (error) {
       console.error("Could not sync data online:", error.message);
+    }
+  }
+
+  function setupRealtimeSubscription() {
+    if (!currentUserUid) return;
+
+    realtimeChannel = supabaseClient
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'student_periods',
+          filter: `user_id=eq.${currentUserUid}`
+        },
+        (payload) => {
+          if (payload.new && payload.new.periods_data) {
+            savedPeriods = payload.new.periods_data;
+            
+            // Re-map internal flags across networks safely without dropping values
+            activeTimers = {};
+            savedPeriods.forEach(p => {
+              Object.keys(p.timerStates || {}).forEach(sId => {
+                if (p.timerStates[sId].isRunning) activeTimers[sId] = true;
+              });
+            });
+
+            if (document.getElementById('dashboardView').style.display === 'block') {
+              renderPeriodsDashboard();
+            } else if (document.getElementById('releasedStudentsView').style.display === 'block') {
+              renderReleasedStudentsList();
+            } else if (document.getElementById('trackingView').style.display === 'block' && activePeriodId) {
+              const currentPeriod = savedPeriods.find(p => p.id === activePeriodId);
+              if (currentPeriod) {
+                syncUIWithIncomingTimerStates(currentPeriod);
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+  }
+
+  function syncUIWithIncomingTimerStates(period) {
+    period.studentIds.forEach(studentId => {
+      const state = period.timerStates[studentId];
+      if (!state) return;
+
+      const buttonEl = document.getElementById(`btn-toggle-${studentId}`);
+      if (!buttonEl) return;
+
+      if (state.isRunning) {
+        buttonEl.innerText = "Pause";
+        buttonEl.classList.remove('start-btn');
+        buttonEl.classList.add('pause-btn');
+      } else {
+        buttonEl.innerText = "Start";
+        buttonEl.classList.remove('pause-btn');
+        buttonEl.classList.add('start-btn');
+        const displayEl = document.getElementById(`display-${studentId}`);
+        if (displayEl) displayEl.innerText = formatMsToTime(state.elapsedMs);
+      }
+    });
+  }
+
+  // Unified loop prevents overlapping background intervals from corrupting timer calculations
+  function startGlobalUITicker() {
+    if (globalUIIntervalId) clearInterval(globalUIIntervalId);
+    globalUIIntervalId = setInterval(() => {
+      const isTrackingOpen = document.getElementById('trackingView').style.display === 'block';
+      const isReleasedOpen = document.getElementById('releasedStudentsView').style.display === 'block';
+
+      if (!isTrackingOpen && !isReleasedOpen) return;
+
+      savedPeriods.forEach(period => {
+        if (isTrackingOpen && period.id !== activePeriodId) return;
+
+        period.studentIds.forEach(studentId => {
+          const state = period.timerStates[studentId];
+          if (state && state.isRunning) {
+            const currentElapsed = Date.now() - state.lastStartTime;
+            
+            if (isTrackingOpen && period.id === activePeriodId) {
+              const displayEl = document.getElementById(`display-${studentId}`);
+              if (displayEl) displayEl.innerText = formatMsToTime(currentElapsed);
+            }
+            if (isReleasedOpen) {
+              const releasedDisplayEl = document.getElementById(`released-display-${studentId}`);
+              if (releasedDisplayEl) releasedDisplayEl.innerText = formatMsToTime(currentElapsed);
+            }
+          }
+        });
+      });
+    }, 100);
+  }
+
+  function renderReleasedStudentsList() {
+    const container = document.getElementById('releasedStudentsContainer');
+    container.innerHTML = '';
+    let activeCount = 0;
+
+    savedPeriods.forEach(period => {
+      period.studentIds.forEach(studentId => {
+        const state = period.timerStates[studentId];
+        if (state && state.isRunning) {
+          activeCount++;
+          const studentData = masterStudentDatabase.find(s => s.id === studentId);
+          if (!studentData) return;
+
+          const currentElapsed = Date.now() - state.lastStartTime;
+          const timeString = formatMsToTime(currentElapsed);
+
+          const row = document.createElement('div');
+          row.className = 'student-timer-row';
+          row.innerHTML = `
+            <div>
+              <span class="timer-student-name" style="display:block;">${studentData.name}</span>
+              <span class="student-count-badge" style="font-size:0.8rem;">Period: ${period.name}</span>
+            </div>
+            <div class="timer-controls-group">
+              <span id="released-display-${studentId}" class="timer-digital-readout">${timeString}</span>
+            </div>
+          `;
+          container.appendChild(row);
+        }
+      });
+    });
+
+    if (activeCount === 0) {
+      container.innerHTML = '<p class="empty-state-text">No students are currently out.</p>';
     }
   }
 
@@ -398,28 +547,15 @@
     const views = document.querySelectorAll('.app-view');
     views.forEach(v => v.style.display = 'none');
     
-    document.getElementById('searchResultView').style.display = 'none';
     document.getElementById('trackingView').style.display = 'block';
-
     renderTrackingRoster(period);
   }
 
   function exitToDashboard() {
-    Object.keys(activeTimers).forEach(studentId => {
-      clearInterval(activeTimers[studentId].intervalId);
-    });
-    activeTimers = {};
     activePeriodId = null;
     preSearchScreenState = 'dashboard';
     document.getElementById('studentSearchInput').value = '';
-
-    const views = document.querySelectorAll('.app-view');
-    views.forEach(v => v.style.display = 'none');
-
-    document.getElementById('trackingView').style.display = 'none';
-    document.getElementById('searchResultView').style.display = 'none';
-    document.getElementById('dashboardView').style.display = 'block';
-    renderPeriodsDashboard();
+    switchView('dashboardView');
   }
 
   function renderTrackingRoster(period) {
@@ -440,7 +576,7 @@
       }
 
       const state = period.timerStates[studentId];
-      const timeString = formatMsToTime(state.elapsedMs);
+      const timeString = formatMsToTime(state.isRunning ? (Date.now() - state.lastStartTime) : state.elapsedMs);
 
       const row = document.createElement('div');
       row.className = 'student-timer-row';
@@ -449,15 +585,13 @@
         <span class="timer-student-name">${studentData.name}</span>
         <div class="timer-controls-group">
           <span id="display-${studentId}" class="timer-digital-readout">${timeString}</span>
-          <button id="btn-toggle-${studentId}" class="timer-action-btn start-btn" onclick="toggleStudentTimer('${studentId}')">Start</button>
+          <button id="btn-toggle-${studentId}" class="timer-action-btn ${state.isRunning ? 'pause-btn' : 'start-btn'}" onclick="toggleStudentTimer('${studentId}')">
+            ${state.isRunning ? 'Pause' : 'Start'}
+          </button>
           <button class="timer-action-btn reset-btn" onclick="resetStudentTimer('${studentId}')">Reset</button>
         </div>
       `;
       rosterContainer.appendChild(row);
-
-      if (state.isRunning) {
-        resumeTimerEngine(studentId);
-      }
     });
   }
 
@@ -496,8 +630,6 @@
 
     const views = document.querySelectorAll('.app-view');
     views.forEach(v => v.style.display = 'none');
-    
-    document.getElementById('trackingView').style.display = 'none';
     document.getElementById('searchResultView').style.display = 'block';
 
     renderSearchResultsWindow(query);
@@ -540,10 +672,8 @@
     document.getElementById('searchResultView').style.display = 'none';
 
     if (preSearchScreenState === 'tracking' && activePeriodId !== null) {
-      document.getElementById('dashboardView').style.display = 'none';
       document.getElementById('trackingView').style.display = 'block';
     } else {
-      document.getElementById('trackingView').style.display = 'none';
       document.getElementById('dashboardView').style.display = 'block';
       renderPeriodsDashboard();
     }
@@ -551,75 +681,56 @@
 
   function toggleStudentTimer(studentId) {
     const period = savedPeriods.find(p => p.id === activePeriodId);
+    if (!period) return;
     const state = period.timerStates[studentId];
     const button = document.getElementById(`btn-toggle-${studentId}`);
 
     if (!state.isRunning) {
       state.isRunning = true;
       state.lastStartTime = Date.now() - state.elapsedMs;
-      button.innerText = "Pause";
-      button.classList.remove('start-btn');
-      button.classList.add('pause-btn');
-
-      const intervalId = setInterval(() => {
-        state.elapsedMs = Date.now() - state.lastStartTime;
-        document.getElementById(`display-${studentId}`).innerText = formatMsToTime(state.elapsedMs);
-        saveToSupabase(); 
-      }, 100);
-
-      activeTimers[studentId] = { intervalId: intervalId };
+      if (button) {
+        button.innerText = "Pause";
+        button.classList.remove('start-btn');
+        button.classList.add('pause-btn');
+      }
+      activeTimers[studentId] = true;
     } else {
       state.isRunning = false;
-      clearInterval(activeTimers[studentId].intervalId);
-      delete activeTimers[studentId];
-      
-      button.innerText = "Start";
-      button.classList.remove('pause-btn');
-      button.classList.add('start-btn');
-      saveToSupabase();
-    }
-  }
-
-  function resumeTimerEngine(studentId) {
-    const period = savedPeriods.find(p => p.id === activePeriodId);
-    const state = period.timerStates[studentId];
-    const button = document.getElementById(`btn-toggle-${studentId}`);
-
-    button.innerText = "Pause";
-    button.classList.remove('start-btn');
-    button.classList.add('pause-btn');
-
-    const intervalId = setInterval(() => {
       state.elapsedMs = Date.now() - state.lastStartTime;
-      document.getElementById(`display-${studentId}`).innerText = formatMsToTime(state.elapsedMs);
-      saveToSupabase();
-    }, 100);
-
-    activeTimers[studentId] = { intervalId: intervalId };
+      if (button) {
+        button.innerText = "Start";
+        button.classList.remove('pause-btn');
+        button.classList.add('start-btn');
+      }
+      delete activeTimers[studentId];
+    }
+    saveToSupabase();
   }
 
   function resetStudentTimer(studentId) {
     const period = savedPeriods.find(p => p.id === activePeriodId);
+    if (!period) return;
     const state = period.timerStates[studentId];
-
-    if (state.isRunning) {
-      clearInterval(activeTimers[studentId].intervalId);
-      delete activeTimers[studentId];
-    }
 
     state.isRunning = false;
     state.elapsedMs = 0;
     state.lastStartTime = null;
+    delete activeTimers[studentId];
 
-    document.getElementById(`display-${studentId}`).innerText = "00:00.0";
+    const displayEl = document.getElementById(`display-${studentId}`);
+    if (displayEl) displayEl.innerText = "00:00.0";
+    
     const button = document.getElementById(`btn-toggle-${studentId}`);
-    button.innerText = "Start";
-    button.classList.remove('pause-btn');
-    button.classList.add('start-btn');
+    if (button) {
+      button.innerText = "Start";
+      button.classList.remove('pause-btn');
+      button.classList.add('start-btn');
+    }
     saveToSupabase();
   }
 
   function formatMsToTime(ms) {
+    if (ms < 0 || isNaN(ms)) ms = 0;
     let totalSeconds = Math.floor(ms / 1000);
     let minutes = Math.floor(totalSeconds / 60);
     let seconds = totalSeconds % 60;
