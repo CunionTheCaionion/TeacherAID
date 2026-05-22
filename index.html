@@ -129,7 +129,7 @@
   let activePeriodId = null;
   let preSearchScreenState = 'dashboard'; 
   let realtimeChannel = null;
-  let globalUIIntervalId = null; // Clean, unified UI ticker loop
+  let globalUIIntervalId = null; 
 
   /* ==========================================================================
      OFFICIAL GOOGLE AUTHENTICATION INITIALIZATION
@@ -231,23 +231,29 @@
   }
 
   /* ==========================================================================
-     CLOUD DATA SYNC & REALTIME ENGINES
+     CLOUD DATA SYNC & REALTIME ENGINES (GLOBAL MULTI-COMPUTER SYNC)
      ========================================================================= */
   async function loadDataFromSupabase() {
     try {
+      // Fetching all rows from student_periods so rooms can see each other's timers
       const { data, error } = await supabaseClient
         .from('student_periods')
-        .select('periods_data')
-        .eq('user_id', currentUserUid)
-        .single();
+        .select('periods_data');
 
-      if (error && error.code !== 'PGRST116') { 
+      if (error) { 
         console.error("Error reading cloud data:", error);
       }
 
-      if (data && data.periods_data) {
-        savedPeriods = data.periods_data;
-        // Rehydrate internal tracking dictionary flags safely
+      if (data && data.length > 0) {
+        let combinedPeriods = [];
+        data.forEach(row => {
+          if (row.periods_data) {
+            const arr = Array.isArray(row.periods_data) ? row.periods_data : [row.periods_data];
+            combinedPeriods = combinedPeriods.concat(arr);
+          }
+        });
+        savedPeriods = combinedPeriods;
+
         savedPeriods.forEach(period => {
           Object.keys(period.timerStates || {}).forEach(studentId => {
             const state = period.timerStates[studentId];
@@ -267,11 +273,14 @@
   async function saveToSupabase() {
     if (!currentUserUid) return;
     
+    // Isolate only the periods created by the current logged-in teacher context to save
+    const teacherOwnedPeriods = savedPeriods.filter(p => !p.id.startsWith('foreign_'));
+
     const { error } = await supabaseClient
       .from('student_periods')
       .upsert({ 
         user_id: currentUserUid, 
-        periods_data: savedPeriods,
+        periods_data: teacherOwnedPeriods,
         updated_at: new Date().toISOString()
       });
 
@@ -283,6 +292,7 @@
   function setupRealtimeSubscription() {
     if (!currentUserUid) return;
 
+    // Filter removed entirely so updates from any teacher account or computer sync universally
     realtimeChannel = supabaseClient
       .channel('schema-db-changes')
       .on(
@@ -290,14 +300,27 @@
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'student_periods',
-          filter: `user_id=eq.${currentUserUid}`
+          table: 'student_periods'
         },
         (payload) => {
           if (payload.new && payload.new.periods_data) {
-            savedPeriods = payload.new.periods_data;
+            const incomingData = payload.new.periods_data;
+            const incomingPeriodsArray = Array.isArray(incomingData) ? incomingData : [incomingData];
             
-            // Re-map internal flags across networks safely without dropping values
+            incomingPeriodsArray.forEach(p => {
+              // Mark periods coming from other classrooms so your local edits don't overwrite them
+              if (payload.new.user_id !== currentUserUid && !p.id.startsWith('foreign_')) {
+                p.id = 'foreign_' + p.id;
+              }
+
+              const existingIndex = savedPeriods.findIndex(localPeriod => localPeriod.id === p.id);
+              if (existingIndex !== -1) {
+                savedPeriods[existingIndex] = p;
+              } else {
+                savedPeriods.push(p);
+              }
+            });
+
             activeTimers = {};
             savedPeriods.forEach(p => {
               Object.keys(p.timerStates || {}).forEach(sId => {
@@ -343,7 +366,6 @@
     });
   }
 
-  // Unified loop prevents overlapping background intervals from corrupting timer calculations
   function startGlobalUITicker() {
     if (globalUIIntervalId) clearInterval(globalUIIntervalId);
     globalUIIntervalId = setInterval(() => {
@@ -390,12 +412,15 @@
           const currentElapsed = Date.now() - state.lastStartTime;
           const timeString = formatMsToTime(currentElapsed);
 
+          // Clean up string tags if the period belongs to a foreign network computer
+          const standardPeriodName = period.name.replace('foreign_', '');
+
           const row = document.createElement('div');
           row.className = 'student-timer-row';
           row.innerHTML = `
             <div>
               <span class="timer-student-name" style="display:block;">${studentData.name}</span>
-              <span class="student-count-badge" style="font-size:0.8rem;">Period: ${period.name}</span>
+              <span class="student-count-badge" style="font-size:0.8rem;">Period: ${standardPeriodName}</span>
             </div>
             <div class="timer-controls-group">
               <span id="released-display-${studentId}" class="timer-digital-readout">${timeString}</span>
@@ -501,7 +526,10 @@
     const displayContainer = document.getElementById('periodsDisplayContainer');
     displayContainer.innerHTML = '';
 
-    savedPeriods.forEach(period => {
+    // Only show periods owned by this user on their home dashboard
+    const myDisplayedPeriods = savedPeriods.filter(p => !p.id.startsWith('foreign_'));
+
+    myDisplayedPeriods.forEach(period => {
       const card = document.createElement('div');
       card.className = 'period-dashboard-card';
       card.onclick = () => launchTrackingScreen(period.id); 
@@ -649,7 +677,7 @@
     }
 
     matchedStudents.forEach(student => {
-      const assignedPeriods = savedPeriods.filter(p => p.studentIds.includes(student.id)).map(p => p.name);
+      const assignedPeriods = savedPeriods.filter(p => p.studentIds.includes(student.id)).map(p => p.name.replace('foreign_', ''));
       const periodString = assignedPeriods.length > 0 ? assignedPeriods.join(', ') : 'Unassigned';
 
       const row = document.createElement('div');
