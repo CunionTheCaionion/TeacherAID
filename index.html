@@ -78,14 +78,17 @@
 
 <script>
   /* ==========================================================================
-     SUPABASE CONNECTION SETUP
+     SUPABASE & GOOGLE SHEETS CONFIGURATION
      ========================================================================= */
   const SUPABASE_URL = "https://zipxcbebimecwhppsinz.supabase.co"; 
   const SUPABASE_ANON_KEY = "sb_publishable_yBu1oTqbUVj-VJOba8zuyg_Sff_F9vj";
   
-  // Changed variable name here to avoid collision with the CDN library
+  // TODO: PASTE YOUR GOOGLE SHEETS CSV LINK HERE!
+  const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEjSntfQqKHF0IMKgqz3ByZ_2OacOK8Y4k-faFK7ymjxv8AMWxcSfPsyyFyPOSfugQWAyD6yLnuhpq/pub?output=csv";
+
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  let masterStudentDatabase = []; // Populated dynamically from Google Sheet
   let savedPeriods = [];
   let currentUserUid = null;
   let activeTimers = {}; 
@@ -109,7 +112,6 @@
     }
   });
 
-  // Triggers automatically upon a valid user sign-in event from Google
   async function handleCredentialResponse(response) {
     const { data, error } = await supabaseClient.auth.signInWithIdToken({
       provider: 'google',
@@ -125,21 +127,52 @@
 
     document.getElementById('startPageLanding').style.display = 'none';
     document.body.classList.remove('start-page-body');
-    
     document.getElementById('mainApplicationWorkspace').style.display = 'block';
 
+    // Fetch master list from Google Sheet first, then load teacher data
+    await loadStudentsFromGoogleSheet();
     await loadDataFromSupabase();
     renderPeriodsDashboard();
   }
 
-  // Master Student Database
-  const masterStudentDatabase = [
-    { id: "s1", name: "Alex Johnson" },
-    { id: "s2", name: "Brian Smith" },
-    { id: "s3", name: "Chloe Davis" },
-    { id: "s4", name: "Daniel Martinez" },
-    { id: "s5", name: "Emily Wilson" }
-  ];
+  /* ==========================================================================
+     GOOGLE SHEETS PARSER
+     ========================================================================= */
+  async function loadStudentsFromGoogleSheet() {
+    if (!GOOGLE_SHEET_CSV_URL || GOOGLE_SHEET_CSV_URL.startsWith("YOUR_")) {
+      console.warn("Google Sheet URL missing. Falling back to default list.");
+      masterStudentDatabase = [
+        { id: "s1", name: "Alex Johnson" },
+        { id: "s2", name: "Brian Smith" }
+      ];
+      return;
+    }
+
+    try {
+      const response = await fetch(GOOGLE_SHEET_CSV_URL);
+      const csvText = await response.text();
+      
+      // Split by line breaks and process rows
+      const lines = csvText.split(/\r?\n/);
+      const parsedStudents = [];
+      
+      // Start at 1 to skip header row ("Name")
+      for (let i = 1; i < lines.length; i++) {
+        const name = lines[i].trim();
+        if (name) {
+          parsedStudents.push({
+            id: "sheet_s_" + i,
+            name: name
+          });
+        }
+      }
+      
+      masterStudentDatabase = parsedStudents;
+      console.log(`Successfully loaded ${masterStudentDatabase.length} students from Google Sheet.`);
+    } catch (err) {
+      console.error("Failed to fetch data from Google Sheet:", err);
+    }
+  }
 
   /* ==========================================================================
      CLOUD DATA SYNC ENGINES
