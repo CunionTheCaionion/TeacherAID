@@ -117,7 +117,6 @@
      ========================================================================= */
   const SUPABASE_URL = "https://zipxcbebimecwhppsinz.supabase.co"; 
   const SUPABASE_ANON_KEY = "sb_publishable_yBu1oTqbUVj-VJOba8zuyg_Sff_F9vj";
-  
   const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEjSntfQqKHF0IMKgqz3ByZ_2OacOK8Y4k-faFK7ymjxv8AMWxcSfPsyyFyPOSfugQWAyD6yLnuhpq/pub?output=csv";
 
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -235,10 +234,9 @@
      ========================================================================= */
   async function loadDataFromSupabase() {
     try {
-      // Fetching all rows from student_periods so rooms can see each other's timers
       const { data, error } = await supabaseClient
         .from('student_periods')
-        .select('periods_data');
+        .select('user_id, periods_data');
 
       if (error) { 
         console.error("Error reading cloud data:", error);
@@ -249,7 +247,16 @@
         data.forEach(row => {
           if (row.periods_data) {
             const arr = Array.isArray(row.periods_data) ? row.periods_data : [row.periods_data];
-            combinedPeriods = combinedPeriods.concat(arr);
+            
+            // Flag periods owned by other accounts so they are excluded from local display options
+            const mappedArr = arr.map(p => {
+              if (row.user_id !== currentUserUid && !p.id.startsWith('foreign_')) {
+                p.id = 'foreign_' + p.id;
+              }
+              return p;
+            });
+            
+            combinedPeriods = combinedPeriods.concat(mappedArr);
           }
         });
         savedPeriods = combinedPeriods;
@@ -292,7 +299,6 @@
   function setupRealtimeSubscription() {
     if (!currentUserUid) return;
 
-    // Filter removed entirely so updates from any teacher account or computer sync universally
     realtimeChannel = supabaseClient
       .channel('schema-db-changes')
       .on(
@@ -308,7 +314,7 @@
             const incomingPeriodsArray = Array.isArray(incomingData) ? incomingData : [incomingData];
             
             incomingPeriodsArray.forEach(p => {
-              // Mark periods coming from other classrooms so your local edits don't overwrite them
+              // Ensure periods coming from other rooms are tagged appropriately
               if (payload.new.user_id !== currentUserUid && !p.id.startsWith('foreign_')) {
                 p.id = 'foreign_' + p.id;
               }
@@ -411,8 +417,6 @@
 
           const currentElapsed = Date.now() - state.lastStartTime;
           const timeString = formatMsToTime(currentElapsed);
-
-          // Clean up string tags if the period belongs to a foreign network computer
           const standardPeriodName = period.name.replace('foreign_', '');
 
           const row = document.createElement('div');
@@ -434,6 +438,44 @@
     if (activeCount === 0) {
       container.innerHTML = '<p class="empty-state-text">No students are currently out.</p>';
     }
+  }
+
+  function renderPeriodsDashboard() {
+    const displayContainer = document.getElementById('periodsDisplayContainer');
+    displayContainer.innerHTML = '';
+
+    // FILTER OUT FOREIGN PERIODS: Ensure other teachers' setups don't blend into your workspace dashboard
+    const myDisplayedPeriods = savedPeriods.filter(p => !p.id.startsWith('foreign_'));
+
+    myDisplayedPeriods.forEach(period => {
+      const card = document.createElement('div');
+      card.className = 'period-dashboard-card';
+      card.onclick = () => launchTrackingScreen(period.id); 
+      
+      const studentCount = period.studentIds.length;
+
+      card.innerHTML = `
+        <div class="card-header">
+          <h4>${period.name}</h4>
+          <span class="student-count-badge">${studentCount} Students</span>
+        </div>
+        <div class="card-actions">
+          <button class="action-link-btn edit-link" onclick="openModalForEdit(event, '${period.id}')">Edit</button>
+          <button class="action-link-btn delete-link" onclick="deletePeriod(event, '${period.id}')">Delete</button>
+        </div>
+      `;
+      displayContainer.appendChild(card);
+    });
+
+    const buttonCard = document.createElement('div');
+    buttonCard.className = 'add-button-grid-item';
+    buttonCard.innerHTML = `
+      <button class="add-period-box-btn-inline" onclick="openModalForCreate()">
+        <span class="box-plus-icon">+</span>
+        <span class="box-btn-text">Add Period</span>
+      </button>
+    `;
+    displayContainer.appendChild(buttonCard);
   }
 
   function loadStudentChecklist(selectedStudentIds = []) {
@@ -520,44 +562,6 @@
       renderPeriodsDashboard();
       await saveToSupabase(); 
     }
-  }
-
-  function renderPeriodsDashboard() {
-    const displayContainer = document.getElementById('periodsDisplayContainer');
-    displayContainer.innerHTML = '';
-
-    // Only show periods owned by this user on their home dashboard
-    const myDisplayedPeriods = savedPeriods.filter(p => !p.id.startsWith('foreign_'));
-
-    myDisplayedPeriods.forEach(period => {
-      const card = document.createElement('div');
-      card.className = 'period-dashboard-card';
-      card.onclick = () => launchTrackingScreen(period.id); 
-      
-      const studentCount = period.studentIds.length;
-
-      card.innerHTML = `
-        <div class="card-header">
-          <h4>${period.name}</h4>
-          <span class="student-count-badge">${studentCount} Students</span>
-        </div>
-        <div class="card-actions">
-          <button class="action-link-btn edit-link" onclick="openModalForEdit(event, '${period.id}')">Edit</button>
-          <button class="action-link-btn delete-link" onclick="deletePeriod(event, '${period.id}')">Delete</button>
-        </div>
-      `;
-      displayContainer.appendChild(card);
-    });
-
-    const buttonCard = document.createElement('div');
-    buttonCard.className = 'add-button-grid-item';
-    buttonCard.innerHTML = `
-      <button class="add-period-box-btn-inline" onclick="openModalForCreate()">
-        <span class="box-plus-icon">+</span>
-        <span class="box-btn-text">Add Period</span>
-      </button>
-    `;
-    displayContainer.appendChild(buttonCard);
   }
 
   /* ==========================================================================
