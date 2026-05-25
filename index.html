@@ -6,6 +6,7 @@
     <title>Hall Monitor</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="start-page-body">
 
@@ -15,7 +16,7 @@
             <p class="start-app-subtitle">Track, manage, and optimize student runtime metrics seamlessly.</p>
         </div>
         <hr class="start-divider">
-        <div class="start-card-actions" style="display: flex; justify-content: center; margin-bottom: 30px;">
+        <div class="start-card-actions" style="display: flex; justify-content: center; margin-bottom: 20px;">
             <div id="googleButtonDiv"></div>
         </div>
         <div class="start-card-footer">
@@ -24,9 +25,7 @@
     </div>
 
     <div id="mainApplicationWorkspace" style="display: none; width: 100%;">
-        <input type="search" id="studentSearchInput" class="search-bar" placeholder="Search Students" oninput="executeGlobalSearch()">
-
-        <link rel="stylesheet" href="style.css">
+        
         <div class="sidenav">
             <a href="#" onclick="switchView('dashboardView')">Home</a>
             <a href="#" onclick="switchView('accountView')">Account</a>
@@ -36,81 +35,83 @@
             <a href="#" onclick="switchView('dashboardView')">Dashboard</a>
         </div>
         
-        <div id="dashboardView" class="app-view">
-            <div class="line-container">
-                <span class="line left-line"></span>
-                <span class="text">My Periods</span>
-                <span class="line right-line"></span>
-            </div>
-            <div id="periodsDisplayContainer" class="periods-grid"></div>
+        <div class="main-content-layout">
+            
+            <div id="dashboardView" class="app-view" style="display: block;">
+                <div class="line-container">
+                    <span class="line left-line"></span>
+                    <span class="text">My Periods</span>
+                    <span class="line right-line"></span>
+                </div>
+                <div id="periodsDisplayContainer" class="periods-grid"></div>
 
-            <div id="restrictedAdminPanel" style="display: none; margin-top: 40px; padding: 20px; background: #fff5f5; border: 2px dashed #ff4d4d; border-radius: 8px; text-align: center;">
-                <h3 style="margin-top: 0; color: #cc0000; font-family: sans-serif; text-align: center;">🛡️ System Admin Override Panel</h3>
-                <p style="font-size: 0.9rem; color: #555; text-align: center; margin-bottom: 20px;">Detected active timers across all synced user accounts. Use the overrides below to clear stuck sessions.</p>
-                <div id="adminActiveTimersList" class="student-roster-list" style="margin: 15px auto 0 auto; background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ffcccc; max-width: 600px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;"></div>
-            </div>
-        </div>
-
-        <div id="accountView" class="app-view" style="display: none;">
-            <div class="line-container">
-                <span class="line left-line"></span>
-                <span class="text">Account</span>
-                <span class="line right-line"></span>
-            </div>
-        </div>
-
-        <div id="settingsView" class="app-view" style="display: none;">
-            <div class="line-container">
-                <span class="line left-line"></span>
-                <span class="text">Settings</span>
-                <span class="line right-line"></span>
-            </div>
-        </div>
-
-        <div id="myStudentsView" class="app-view" style="display: none;">
-            <div class="line-container">
-                <span class="line left-line"></span>
-                <span class="text">My Students</span>
-                <span class="line right-line"></span>
-            </div>
-        </div>
-
-        <div id="releasedStudentsView" class="app-view" style="display: none;">
-            <div class="line-container">
-                <span class="line left-line"></span>
-                <span class="text">Released Students</span>
-                <span class="line right-line"></span>
-            </div>
-            <div id="releasedStudentsContainer" class="student-roster-list"></div>
-        </div>
-
-        <div id="trackingView" class="app-view" style="display: none;">
-            <div class="tracking-header">
-                <button class="back-dashboard-btn" onclick="exitToDashboard()">← Back to Dashboard</button>
-                <h2 id="trackingPeriodTitle" class="tracking-period-title">Period Name</h2>
+                <div id="restrictedAdminPanel" style="display: none;">
+                    <h3 style="margin-top: 0; color: #cc0000; font-family: sans-serif; text-align: center;">🛡️ System Admin Override Panel</h3>
+                    <p style="font-size: 0.95rem; color: #555; text-align: center; margin-bottom: 20px; font-family: sans-serif;">Detected active timers across all synced user accounts. Use the overrides below to clear stuck sessions.</p>
+                    <div id="adminActiveTimersList" class="student-roster-list"></div>
+                </div>
             </div>
 
-            <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">
-                <button id="tabRosterBtn" class="back-dashboard-btn" style="background-color: #000; color: #fff;" onclick="switchTrackingTab('roster')">Active Timers</button>
-                <button id="tabAnalyticsBtn" class="back-dashboard-btn" style="background-color: transparent; color: #000;" onclick="switchTrackingTab('analytics')">Time Analytics Graph</button>
+            <div id="accountView" class="app-view">
+                <div class="line-container">
+                    <span class="line left-line"></span>
+                    <span class="text">Account</span>
+                    <span class="line right-line"></span>
+                </div>
             </div>
 
-            <div id="trackingRosterSection" class="student-roster-list">
-                <div id="trackingRosterContainer" class="student-roster-list"></div>
+            <div id="settingsView" class="app-view">
+                <div class="line-container">
+                    <span class="line left-line"></span>
+                    <span class="text">Settings</span>
+                    <span class="line right-line"></span>
+                </div>
             </div>
 
-            <div id="trackingAnalyticsSection" class="student-roster-list" style="display: none; background: #ffffff; padding: 25px; border: 1px solid #e0e0e0; border-radius: 6px;">
-                <h3 style="margin-top: 0; font-family: sans-serif; font-weight: 600;">Total Time Out of Classroom</h3>
-                <div id="analyticsChartContainer" style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px;"></div>
+            <div id="myStudentsView" class="app-view">
+                <div class="line-container">
+                    <span class="line left-line"></span>
+                    <span class="text">My Students</span>
+                    <span class="line right-line"></span>
+                </div>
+                
+                <div class="search-input-container">
+                    <input type="search" id="studentSearchInput" class="search-bar-inline" placeholder="Type a name to search..." oninput="executeInlineSearch()">
+                </div>
+                
+                <div id="inlineSearchResultsContainer" class="student-roster-list"></div>
             </div>
-        </div>
 
-        <div id="searchResultView" class="app-view" style="display: none;">
-            <div class="tracking-header">
-                <button class="back-dashboard-btn" onclick="clearSearchAndReturn()">✕ Clear Search</button>
-                <h2 class="tracking-period-title">Global Student Search</h2>
+            <div id="releasedStudentsView" class="app-view">
+                <div class="line-container">
+                    <span class="line left-line"></span>
+                    <span class="text">Released Students</span>
+                    <span class="line right-line"></span>
+                </div>
+                <div id="releasedStudentsContainer" class="student-roster-list"></div>
             </div>
-            <div id="searchResultsContainer" class="student-roster-list"></div>
+
+            <div id="trackingView" class="app-view">
+                <div style="margin-bottom: 25px; text-align: left;">
+                    <button class="back-dashboard-btn" style="margin-bottom: 15px;" onclick="exitToDashboard()">← Back to Dashboard</button>
+                    <h2 id="trackingPeriodTitle" class="timer-student-name" style="font-size: 2rem; margin: 0;">Period Name</h2>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid #e0e0e0; padding-bottom: 12px;">
+                    <button id="tabRosterBtn" class="back-dashboard-btn" style="background-color: #000; color: #fff;" onclick="switchTrackingTab('roster')">Active Timers</button>
+                    <button id="tabAnalyticsBtn" class="back-dashboard-btn" style="background-color: transparent; color: #000;" onclick="switchTrackingTab('analytics')">Time Analytics Graph</button>
+                </div>
+
+                <div id="trackingRosterSection" class="student-roster-list">
+                    <div id="trackingRosterContainer" class="student-roster-list" style="padding: 0;"></div>
+                </div>
+
+                <div id="trackingAnalyticsSection" class="student-roster-list" style="display: none; background: #ffffff; padding: 25px; border: 1px solid #e0e0e0; border-radius: 6px;">
+                    <h3 style="margin-top: 0; font-family: sans-serif; font-weight: 600;">Total Time Out of Classroom</h3>
+                    <div id="analyticsChartContainer" style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px; width: 100%;"></div>
+                </div>
+            </div>
+            
         </div>
 
         <div id="periodModal" class="modal-overlay">
@@ -137,8 +138,6 @@
   const SUPABASE_URL = "https://zipxcbebimecwhppsinz.supabase.co"; 
   const SUPABASE_ANON_KEY = "sb_publishable_yBu1oTqbUVj-VJOba8zuyg_Sff_F9vj";
   const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEjSntfQqKHF0IMKgqz3ByZ_2OacOK8Y4k-faFK7ymjxv8AMWxcSfPsyyFyPOSfugQWAyD6yLnuhpq/pub?output=csv";
-
-  // 🔴 PLACE YOUR ACCURATE SUPABASE USER ID HERE TO ACCESS ADMIN UTILITIES
   const ADMIN_UID = "d2a386f6-d530-41d7-9dfd-b31baf2e093f";
 
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -148,14 +147,10 @@
   let currentUserUid = null;
   let activeTimers = {}; 
   let activePeriodId = null;
-  let preSearchScreenState = 'dashboard'; 
   let realtimeChannel = null;
   let globalUIIntervalId = null; 
   let currentTrackingTab = 'roster';
 
-  /* ==========================================================================
-     OFFICIAL GOOGLE AUTHENTICATION INITIALIZATION
-     ========================================================================= */
   window.addEventListener('load', function () {
     if (window.google && google.accounts && google.accounts.id) {
         google.accounts.id.initialize({
@@ -182,7 +177,6 @@
     }
 
     currentUserUid = data.user.id;
-
     document.getElementById('startPageLanding').style.display = 'none';
     document.body.classList.remove('start-page-body');
     document.getElementById('mainApplicationWorkspace').style.display = 'block';
@@ -195,9 +189,6 @@
     checkAdminAccessRights();
   }
 
-  /* ==========================================================================
-     ADMIN PANEL AUTH CHECK & RENDERING MODULES (CENTERED DESIGN)
-     ========================================================================= */
   function checkAdminAccessRights() {
     const adminPanel = document.getElementById('restrictedAdminPanel');
     if (currentUserUid === ADMIN_UID) {
@@ -226,17 +217,14 @@
           const row = document.createElement('div');
           row.className = 'student-timer-row';
           row.style.borderLeft = "4px solid #ff4d4d";
-          row.style.width = "100%";
-          row.style.boxSizing = "border-box";
-          row.style.justifyContent = "space-between";
           row.innerHTML = `
             <div style="text-align: left;">
-              <strong style="display:block;">${studentName}</strong>
+              <strong style="display:block; font-family:sans-serif;">${studentName}</strong>
               <span class="student-count-badge" style="font-size:0.75rem; background:#fff0f0; color:#cc0000; border:1px solid #ffcccc; padding: 2px 6px; border-radius:3px;">Class: ${displayPeriodName}</span>
             </div>
-            <div class="timer-controls-group" style="justify-content: flex-end;">
+            <div class="timer-controls-group">
               <span id="admin-display-${period.id}-${studentId}" class="timer-digital-readout" style="color:#cc0000;">--:--.-</span>
-              <button class="timer-action-btn reset-btn" style="background:#cc0000; color:#000000;" onclick="adminForceResetTimer('${period.id}', '${studentId}')">Force Stop & Reset</button>
+              <button class="timer-action-btn reset-btn" style="background:#cc0000; color:#ffffff; border-color:#cc0000;" onclick="adminForceResetTimer('${period.id}', '${studentId}')">Force Stop</button>
             </div>
           `;
           container.appendChild(row);
@@ -245,14 +233,12 @@
     });
 
     if (foundAnyActive === 0) {
-      container.innerHTML = '<p class="empty-state-text" style="color:#999; text-align: center; margin: 0;">System clear. No stuck timers detected across peer instances.</p>';
+      container.innerHTML = '<p class="empty-state-text" style="color:#999; text-align: center; margin: 10px 0 0 0; width:100%;">System clear. No stuck timers detected across peer instances.</p>';
     }
   }
 
-async function adminForceResetTimer(periodId, studentId) {
+  async function adminForceResetTimer(periodId, studentId) {
     if (!confirm("Are you sure you want to force stop and reset this timer globally?")) return;
-
-    // 1. Clean it up locally first
     const targetPeriod = savedPeriods.find(p => p.id === periodId);
     if (!targetPeriod) return;
 
@@ -263,18 +249,14 @@ async function adminForceResetTimer(periodId, studentId) {
     }
     delete activeTimers[studentId];
 
-    // 2. Clear out the 'foreign_' tag if it exists to find the true database ID
     const baselinePeriodId = periodId.replace('foreign_', '');
-
     try {
-      // Fetch every single row from the database to find who owns this period
       const { data: allRecords, error: fetchError } = await supabaseClient
         .from('student_periods')
         .select('user_id, periods_data');
 
       if (fetchError) throw fetchError;
 
-      // Find the specific teacher's row that holds this period ID
       const matchRow = allRecords.find(row => {
         if (!row.periods_data) return false;
         const periodsArray = Array.isArray(row.periods_data) ? row.periods_data : [row.periods_data];
@@ -286,51 +268,40 @@ async function adminForceResetTimer(periodId, studentId) {
         const innerIdx = rowPeriods.findIndex(p => p.id === baselinePeriodId);
         
         if (innerIdx !== -1) {
-          // Stop and reset the target student inside that teacher's dataset
-          rowPeriods[innerIdx].timerStates[studentId] = { 
-            elapsedMs: 0, 
-            isRunning: false, 
-            lastStartTime: null 
-          };
-
-          // 🚨 FIXED: Use a direct .update() filtered by the target user_id instead of an .upsert()
+          rowPeriods[innerIdx].timerStates[studentId] = { elapsedMs: 0, isRunning: false, lastStartTime: null };
           const { error: updateError } = await supabaseClient
             .from('student_periods')
-            .update({ 
-              periods_data: rowPeriods,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', matchRow.user_id); // Target only your friend's row explicitly
-
+            .update({ periods_data: rowPeriods, updated_at: new Date().toISOString() })
+            .eq('user_id', matchRow.user_id);
           if (updateError) throw updateError;
-          console.log(`Successfully overrode stuck timer for student ${studentId} in owner row: ${matchRow.user_id}`);
         }
       }
     } catch (err) {
       console.error("Admin cloud override failed:", err.message);
-      alert("Database sync failed! Your Admin account doesn't have permissions to write to this teacher's row yet.\n\nTo allow edits, go to your Supabase Dashboard -> Database -> Policies, and add your Admin UID to the 'student_periods' update policy:\n\nauth.uid() = '" + ADMIN_UID + "'");
     }
 
-    // 3. Refresh the UI elements instantly
     renderAdminActiveTimersList();
     if (document.getElementById('releasedStudentsView').style.display === 'block') renderReleasedStudentsList();
     if (activePeriodId === periodId && document.getElementById('trackingView').style.display === 'block') launchTrackingScreen(periodId);
   }
 
-  /* ==========================================================================
-     NAVIGATION ENGINE FOR VIEWS
-     ========================================================================= */
   function switchView(viewId) {
     document.getElementById('studentSearchInput').value = '';
+    
+    const inlineContainer = document.getElementById('inlineSearchResultsContainer');
+    if(inlineContainer) inlineContainer.innerHTML = '';
     
     const views = document.querySelectorAll('.app-view');
     views.forEach(v => v.style.display = 'none');
     
-    document.getElementById(viewId).style.display = 'block';
+    const targetView = document.getElementById(viewId);
+    if(targetView) targetView.style.display = 'block'; /* Switched to native layout block flow */
     
     if (viewId === 'dashboardView') {
         renderPeriodsDashboard();
         checkAdminAccessRights();
+    } else if (viewId === 'myStudentsView') {
+        executeInlineSearch(); 
     }
   }
 
@@ -339,19 +310,14 @@ async function adminForceResetTimer(periodId, studentId) {
     renderReleasedStudentsList();
   }
 
-  /* ==========================================================================
-     GOOGLE SHEETS PARSER
-     ========================================================================= */
   async function loadStudentsFromGoogleSheet() {
     if (!GOOGLE_SHEET_CSV_URL || GOOGLE_SHEET_CSV_URL.startsWith("YOUR_")) {
-      console.warn("Google Sheet URL missing. Falling back to default list.");
       masterStudentDatabase = [
         { id: "s1", name: "Alex Johnson" },
         { id: "s2", name: "Brian Smith" }
       ];
       return;
     }
-
     try {
       const response = await fetch(GOOGLE_SHEET_CSV_URL);
       const csvText = await response.text();
@@ -370,9 +336,6 @@ async function adminForceResetTimer(periodId, studentId) {
     }
   }
 
-  /* ==========================================================================
-     CLOUD DATA SYNC & REALTIME ENGINES
-     ========================================================================= */
   async function loadDataFromSupabase() {
     try {
       const { data, error } = await supabaseClient
@@ -454,9 +417,8 @@ async function adminForceResetTimer(periodId, studentId) {
               checkAdminAccessRights();
             } else if (document.getElementById('releasedStudentsView').style.display === 'block') {
               renderReleasedStudentsList();
-            } else if (document.getElementById('searchResultView').style.display === 'block') {
-              const query = document.getElementById('studentSearchInput').value.trim().toLowerCase();
-              if (query !== '') renderSearchResultsWindow(query);
+            } else if (document.getElementById('myStudentsView').style.display === 'block') {
+              executeInlineSearch();
             } else if (document.getElementById('trackingView').style.display === 'block' && activePeriodId) {
               const currentPeriod = savedPeriods.find(p => p.id === activePeriodId);
               if (currentPeriod) {
@@ -495,10 +457,10 @@ async function adminForceResetTimer(periodId, studentId) {
     globalUIIntervalId = setInterval(() => {
       const isTrackingOpen = document.getElementById('trackingView').style.display === 'block';
       const isReleasedOpen = document.getElementById('releasedStudentsView').style.display === 'block';
-      const isSearchOpen = document.getElementById('searchResultView').style.display === 'block';
+      const isMyStudentsOpen = document.getElementById('myStudentsView').style.display === 'block';
       const isAdminVisible = (currentUserUid === ADMIN_UID && document.getElementById('dashboardView').style.display === 'block');
 
-      if (!isTrackingOpen && !isReleasedOpen && !isSearchOpen && !isAdminVisible) return;
+      if (!isTrackingOpen && !isReleasedOpen && !isMyStudentsOpen && !isAdminVisible) return;
 
       savedPeriods.forEach(period => {
         period.studentIds.forEach(studentId => {
@@ -529,9 +491,9 @@ async function adminForceResetTimer(periodId, studentId) {
               const adminDisplayEl = document.getElementById(`admin-display-${period.id}-${studentId}`);
               if (adminDisplayEl) adminDisplayEl.innerText = formatMsToTime(currentElapsed);
             }
-            if (isSearchOpen) {
-              const searchDisplayEl = document.getElementById(`search-display-${studentId}`);
-              if (searchDisplayEl) {
+            if (isMyStudentsOpen) {
+              const inlineDisplayEl = document.getElementById(`inline-display-${studentId}`);
+              if (inlineDisplayEl) {
                 let totalAccumulated = currentElapsed;
                 savedPeriods.forEach(p => {
                   if (p.id === period.id) return;
@@ -540,7 +502,7 @@ async function adminForceResetTimer(periodId, studentId) {
                     totalAccumulated += sState.isRunning ? (Date.now() - sState.lastStartTime) : sState.elapsedMs;
                   }
                 });
-                searchDisplayEl.innerText = "Weekly: " + formatMsToTime(totalAccumulated);
+                inlineDisplayEl.innerText = "Weekly: " + formatMsToTime(totalAccumulated);
               }
             }
           }
@@ -551,6 +513,7 @@ async function adminForceResetTimer(periodId, studentId) {
 
   function renderReleasedStudentsList() {
     const container = document.getElementById('releasedStudentsContainer');
+    if(!container) return;
     container.innerHTML = '';
     let activeCount = 0;
 
@@ -588,6 +551,7 @@ async function adminForceResetTimer(periodId, studentId) {
 
   function renderPeriodsDashboard() {
     const displayContainer = document.getElementById('periodsDisplayContainer');
+    if(!displayContainer) return;
     displayContainer.innerHTML = '';
     const myDisplayedPeriods = savedPeriods.filter(p => !p.id.startsWith('foreign_'));
 
@@ -620,23 +584,19 @@ async function adminForceResetTimer(periodId, studentId) {
     displayContainer.appendChild(buttonCard);
   }
 
-  /* ==========================================================================
-     TIMING TRACKING CONTROLLER & ANALYTICS BAR GRAPH PLOTTER
-     ========================================================================= */
   function launchTrackingScreen(periodId) {
     const period = savedPeriods.find(p => p.id === periodId);
     if (!period) return;
 
     activePeriodId = periodId;
-    preSearchScreenState = 'tracking';
     document.getElementById('trackingPeriodTitle').innerText = period.name;
-    document.getElementById('studentSearchInput').value = '';
-
     switchTrackingTab('roster');
 
     const views = document.querySelectorAll('.app-view');
     views.forEach(v => v.style.display = 'none');
-    document.getElementById('trackingView').style.display = 'block';
+    
+    const trackingView = document.getElementById('trackingView');
+    if(trackingView) trackingView.style.display = 'block';
     renderTrackingRoster(period);
   }
 
@@ -649,14 +609,16 @@ async function adminForceResetTimer(periodId, studentId) {
     const period = savedPeriods.find(p => p.id === activePeriodId);
 
     if (tab === 'roster') {
-      rosterTabBtn.style.backgroundColor = '#000'; rosterTabBtn.style.color = '#fff';
-      analyticsTabBtn.style.backgroundColor = 'transparent'; analyticsTabBtn.style.color = '#000';
-      rosterSection.style.display = 'block'; analyticsSection.style.display = 'none';
+      if(rosterTabBtn) { rosterTabBtn.style.backgroundColor = '#000'; rosterTabBtn.style.color = '#fff'; }
+      if(analyticsTabBtn) { analyticsTabBtn.style.backgroundColor = 'transparent'; analyticsTabBtn.style.color = '#000'; }
+      if(rosterSection) rosterSection.style.display = 'block';
+      if(analyticsSection) analyticsSection.style.display = 'none';
       if (period) renderTrackingRoster(period);
     } else {
-      analyticsTabBtn.style.backgroundColor = '#000'; analyticsTabBtn.style.color = '#fff';
-      rosterTabBtn.style.backgroundColor = 'transparent'; rosterTabBtn.style.color = '#000';
-      rosterSection.style.display = 'none'; analyticsSection.style.display = 'block';
+      if(analyticsTabBtn) { analyticsTabBtn.style.backgroundColor = '#000'; analyticsTabBtn.style.color = '#fff'; }
+      if(rosterTabBtn) { rosterTabBtn.style.backgroundColor = 'transparent'; rosterTabBtn.style.color = '#000'; }
+      if(rosterSection) rosterSection.style.display = 'none';
+      if(analyticsSection) analyticsSection.style.display = 'block';
       if (period) renderTrackingAnalytics(period);
     }
   }
@@ -675,6 +637,7 @@ async function adminForceResetTimer(periodId, studentId) {
 
   function renderTrackingAnalytics(period) {
     const chartContainer = document.getElementById('analyticsChartContainer');
+    if(!chartContainer) return;
     chartContainer.innerHTML = '';
 
     if (period.studentIds.length === 0) {
@@ -696,9 +659,9 @@ async function adminForceResetTimer(periodId, studentId) {
       const barPercentage = maxTime > 0 ? (item.timeVal / maxTime) * 100 : 0;
       const graphRow = document.createElement('div');
       graphRow.style.display = 'flex'; graphRow.style.flexDirection = 'column'; graphRow.style.gap = '6px';
-      graphRow.style.textAlign = 'left';
+      graphRow.style.textAlign = 'left'; graphRow.style.width = '100%';
       graphRow.innerHTML = `
-        <div style="display:flex; justify-content:space-between; font-family:sans-serif; font-size:0.95rem; font-weight:600;">
+        <div style="display:flex; justify-content:space-between; font-family:sans-serif; font-size:0.95rem; font-weight:600; width:100%;">
           <span>${item.name}</span>
           <span id="bar-lbl-${item.id}" style="font-family:monospace; color:#555;">${formatMsToTime(item.timeVal)}</span>
         </div>
@@ -712,13 +675,12 @@ async function adminForceResetTimer(periodId, studentId) {
 
   function exitToDashboard() {
     activePeriodId = null;
-    preSearchScreenState = 'dashboard';
-    document.getElementById('studentSearchInput').value = '';
     switchView('dashboardView');
   }
 
   function renderTrackingRoster(period) {
     const rosterContainer = document.getElementById('trackingRosterContainer');
+    if(!rosterContainer) return;
     rosterContainer.innerHTML = '';
 
     if (period.studentIds.length === 0) {
@@ -754,10 +716,7 @@ async function adminForceResetTimer(periodId, studentId) {
     });
   }
 
-  /* ==========================================================================
-     GLOBAL SEARCH FILTER ENGINE
-     ========================================================================= */
-  function executeGlobalSearch() {
+  function executeInlineSearch() {
     const query = document.getElementById('studentSearchInput').value.trim().toLowerCase();
     const modalIsVisible = document.getElementById('periodModal').style.display === 'flex';
 
@@ -771,24 +730,11 @@ async function adminForceResetTimer(periodId, studentId) {
       return;
     }
 
-    if (query === '') { clearSearchAndReturn(); return; }
-
-    if (document.getElementById('searchResultView').style.display === 'none') {
-      preSearchScreenState = document.getElementById('trackingView').style.display === 'block' ? 'tracking' : 'dashboard';
-    }
-
-    const views = document.querySelectorAll('.app-view');
-    views.forEach(v => v.style.display = 'none');
-    document.getElementById('searchResultView').style.display = 'block';
-    renderSearchResultsWindow(query);
-  }
-
-  function renderSearchResultsWindow(query) {
-    const resultsContainer = document.getElementById('searchResultsContainer');
+    const resultsContainer = document.getElementById('inlineSearchResultsContainer');
+    if(!resultsContainer) return;
     resultsContainer.innerHTML = '';
 
     const matchedStudents = masterStudentDatabase.filter(student => student.name.toLowerCase().includes(query));
-
     if (matchedStudents.length === 0) {
       resultsContainer.innerHTML = '<p class="empty-state-text">No matching student records found.</p>';
       return;
@@ -801,7 +747,9 @@ async function adminForceResetTimer(periodId, studentId) {
       let finalWeeklyTimeMs = 0;
       savedPeriods.forEach(p => {
         const state = p.timerStates[student.id];
-        if (state) finalWeeklyTimeMs += state.isRunning ? (Date.now() - sState.lastStartTime) : state.elapsedMs;
+        if (state) {
+          finalWeeklyTimeMs += state.isRunning ? (Date.now() - state.lastStartTime) : state.elapsedMs;
+        }
       });
 
       const row = document.createElement('div');
@@ -812,24 +760,11 @@ async function adminForceResetTimer(periodId, studentId) {
           <span class="student-count-badge" style="font-size:0.8rem;">Periods: ${periodString}</span>
         </div>
         <div class="timer-controls-group">
-          <span id="search-display-${student.id}" class="timer-digital-readout" style="min-width:140px; font-size:1.1rem;">Weekly: ${formatMsToTime(finalWeeklyTimeMs)}</span>
+          <span id="inline-display-${student.id}" class="timer-digital-readout" style="min-width:140px; font-size:1.1rem;">Weekly: ${formatMsToTime(finalWeeklyTimeMs)}</span>
         </div>
       `;
       resultsContainer.appendChild(row);
     });
-  }
-
-  function clearSearchAndReturn() {
-    document.getElementById('studentSearchInput').value = '';
-    document.getElementById('searchResultView').style.display = 'none';
-
-    if (preSearchScreenState === 'tracking' && activePeriodId !== null) {
-      document.getElementById('trackingView').style.display = 'block';
-    } else {
-      document.getElementById('dashboardView').style.display = 'block';
-      renderPeriodsDashboard();
-      checkAdminAccessRights();
-    }
   }
 
   function toggleStudentTimer(studentId) {
@@ -869,6 +804,7 @@ async function adminForceResetTimer(periodId, studentId) {
 
   function loadStudentChecklist(selectedStudentIds = []) {
     const container = document.getElementById('studentCheckboxContainer');
+    if(!container) return;
     container.innerHTML = '';
     masterStudentDatabase.forEach(student => {
       const isChecked = selectedStudentIds.includes(student.id) ? 'checked' : '';
@@ -939,6 +875,5 @@ async function adminForceResetTimer(periodId, studentId) {
     return `${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}.${tenths}`;
   }
 </script>
-
 </body>
 </html>
