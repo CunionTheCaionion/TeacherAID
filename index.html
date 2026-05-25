@@ -43,6 +43,12 @@
                 <span class="line right-line"></span>
             </div>
             <div id="periodsDisplayContainer" class="periods-grid"></div>
+
+            <div id="restrictedAdminPanel" style="display: none; margin-top: 40px; padding: 20px; background: #fff5f5; border: 2px dashed #ff4d4d; border-radius: 8px; text-align: center;">
+                <h3 style="margin-top: 0; color: #cc0000; font-family: sans-serif; text-align: center;">🛡️ System Admin Override Panel</h3>
+                <p style="font-size: 0.9rem; color: #555; text-align: center; margin-bottom: 20px;">Detected active timers across all synced user accounts. Use the overrides below to clear stuck sessions.</p>
+                <div id="adminActiveTimersList" class="student-roster-list" style="margin: 15px auto 0 auto; background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ffcccc; max-width: 600px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;"></div>
+            </div>
         </div>
 
         <div id="accountView" class="app-view" style="display: none;">
@@ -80,10 +86,23 @@
 
         <div id="trackingView" class="app-view" style="display: none;">
             <div class="tracking-header">
-                <button class="back-dashboard-btn" onclick="exitToDashboard()">← Home</button>
+                <button class="back-dashboard-btn" onclick="exitToDashboard()">← Back to Dashboard</button>
                 <h2 id="trackingPeriodTitle" class="tracking-period-title">Period Name</h2>
             </div>
-            <div id="trackingRosterContainer" class="student-roster-list"></div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">
+                <button id="tabRosterBtn" class="back-dashboard-btn" style="background-color: #000; color: #fff;" onclick="switchTrackingTab('roster')">Active Timers</button>
+                <button id="tabAnalyticsBtn" class="back-dashboard-btn" style="background-color: transparent; color: #000;" onclick="switchTrackingTab('analytics')">Time Analytics Graph</button>
+            </div>
+
+            <div id="trackingRosterSection" class="student-roster-list">
+                <div id="trackingRosterContainer" class="student-roster-list"></div>
+            </div>
+
+            <div id="trackingAnalyticsSection" class="student-roster-list" style="display: none; background: #ffffff; padding: 25px; border: 1px solid #e0e0e0; border-radius: 6px;">
+                <h3 style="margin-top: 0; font-family: sans-serif; font-weight: 600;">Total Time Out of Classroom</h3>
+                <div id="analyticsChartContainer" style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px;"></div>
+            </div>
         </div>
 
         <div id="searchResultView" class="app-view" style="display: none;">
@@ -119,6 +138,9 @@
   const SUPABASE_ANON_KEY = "sb_publishable_yBu1oTqbUVj-VJOba8zuyg_Sff_F9vj";
   const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEjSntfQqKHF0IMKgqz3ByZ_2OacOK8Y4k-faFK7ymjxv8AMWxcSfPsyyFyPOSfugQWAyD6yLnuhpq/pub?output=csv";
 
+  // 🔴 PLACE YOUR ACCURATE SUPABASE USER ID HERE TO ACCESS ADMIN UTILITIES
+  const ADMIN_UID = "d2a386f6-d530-41d7-9dfd-b31baf2e093f";
+
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let masterStudentDatabase = []; 
@@ -129,6 +151,7 @@
   let preSearchScreenState = 'dashboard'; 
   let realtimeChannel = null;
   let globalUIIntervalId = null; 
+  let currentTrackingTab = 'roster';
 
   /* ==========================================================================
      OFFICIAL GOOGLE AUTHENTICATION INITIALIZATION
@@ -169,6 +192,129 @@
     setupRealtimeSubscription();
     startGlobalUITicker();
     renderPeriodsDashboard();
+    checkAdminAccessRights();
+  }
+
+  /* ==========================================================================
+     ADMIN PANEL AUTH CHECK & RENDERING MODULES (CENTERED DESIGN)
+     ========================================================================= */
+  function checkAdminAccessRights() {
+    const adminPanel = document.getElementById('restrictedAdminPanel');
+    if (currentUserUid === ADMIN_UID) {
+      adminPanel.style.display = 'block';
+      renderAdminActiveTimersList();
+    } else {
+      adminPanel.style.display = 'none';
+    }
+  }
+
+  function renderAdminActiveTimersList() {
+    const container = document.getElementById('adminActiveTimersList');
+    if (!container) return;
+    container.innerHTML = '';
+    let foundAnyActive = 0;
+
+    savedPeriods.forEach(period => {
+      period.studentIds.forEach(studentId => {
+        const state = period.timerStates[studentId];
+        if (state && state.isRunning) {
+          foundAnyActive++;
+          const studentData = masterStudentDatabase.find(s => s.id === studentId);
+          const studentName = studentData ? studentData.name : "Unknown Student";
+          const displayPeriodName = period.name.replace('foreign_', '');
+
+          const row = document.createElement('div');
+          row.className = 'student-timer-row';
+          row.style.borderLeft = "4px solid #ff4d4d";
+          row.style.width = "100%";
+          row.style.boxSizing = "border-box";
+          row.style.justifyContent = "space-between";
+          row.innerHTML = `
+            <div style="text-align: left;">
+              <strong style="display:block;">${studentName}</strong>
+              <span class="student-count-badge" style="font-size:0.75rem; background:#fff0f0; color:#cc0000; border:1px solid #ffcccc; padding: 2px 6px; border-radius:3px;">Class: ${displayPeriodName}</span>
+            </div>
+            <div class="timer-controls-group" style="justify-content: flex-end;">
+              <span id="admin-display-${period.id}-${studentId}" class="timer-digital-readout" style="color:#cc0000;">--:--.-</span>
+              <button class="timer-action-btn reset-btn" style="background:#cc0000; color:#000000;" onclick="adminForceResetTimer('${period.id}', '${studentId}')">Force Stop & Reset</button>
+            </div>
+          `;
+          container.appendChild(row);
+        }
+      });
+    });
+
+    if (foundAnyActive === 0) {
+      container.innerHTML = '<p class="empty-state-text" style="color:#999; text-align: center; margin: 0;">System clear. No stuck timers detected across peer instances.</p>';
+    }
+  }
+
+async function adminForceResetTimer(periodId, studentId) {
+    if (!confirm("Are you sure you want to force stop and reset this timer globally?")) return;
+
+    // 1. Clean it up locally first
+    const targetPeriod = savedPeriods.find(p => p.id === periodId);
+    if (!targetPeriod) return;
+
+    if (targetPeriod.timerStates[studentId]) {
+      targetPeriod.timerStates[studentId].isRunning = false;
+      targetPeriod.timerStates[studentId].elapsedMs = 0;
+      targetPeriod.timerStates[studentId].lastStartTime = null;
+    }
+    delete activeTimers[studentId];
+
+    // 2. Clear out the 'foreign_' tag if it exists to find the true database ID
+    const baselinePeriodId = periodId.replace('foreign_', '');
+
+    try {
+      // Fetch every single row from the database to find who owns this period
+      const { data: allRecords, error: fetchError } = await supabaseClient
+        .from('student_periods')
+        .select('user_id, periods_data');
+
+      if (fetchError) throw fetchError;
+
+      // Find the specific teacher's row that holds this period ID
+      const matchRow = allRecords.find(row => {
+        if (!row.periods_data) return false;
+        const periodsArray = Array.isArray(row.periods_data) ? row.periods_data : [row.periods_data];
+        return periodsArray.some(p => p.id === baselinePeriodId);
+      });
+
+      if (matchRow) {
+        let rowPeriods = Array.isArray(matchRow.periods_data) ? matchRow.periods_data : [matchRow.periods_data];
+        const innerIdx = rowPeriods.findIndex(p => p.id === baselinePeriodId);
+        
+        if (innerIdx !== -1) {
+          // Stop and reset the target student inside that teacher's dataset
+          rowPeriods[innerIdx].timerStates[studentId] = { 
+            elapsedMs: 0, 
+            isRunning: false, 
+            lastStartTime: null 
+          };
+
+          // 🚨 FIXED: Use a direct .update() filtered by the target user_id instead of an .upsert()
+          const { error: updateError } = await supabaseClient
+            .from('student_periods')
+            .update({ 
+              periods_data: rowPeriods,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', matchRow.user_id); // Target only your friend's row explicitly
+
+          if (updateError) throw updateError;
+          console.log(`Successfully overrode stuck timer for student ${studentId} in owner row: ${matchRow.user_id}`);
+        }
+      }
+    } catch (err) {
+      console.error("Admin cloud override failed:", err.message);
+      alert("Database sync failed! Your Admin account doesn't have permissions to write to this teacher's row yet.\n\nTo allow edits, go to your Supabase Dashboard -> Database -> Policies, and add your Admin UID to the 'student_periods' update policy:\n\nauth.uid() = '" + ADMIN_UID + "'");
+    }
+
+    // 3. Refresh the UI elements instantly
+    renderAdminActiveTimersList();
+    if (document.getElementById('releasedStudentsView').style.display === 'block') renderReleasedStudentsList();
+    if (activePeriodId === periodId && document.getElementById('trackingView').style.display === 'block') launchTrackingScreen(periodId);
   }
 
   /* ==========================================================================
@@ -184,6 +330,7 @@
     
     if (viewId === 'dashboardView') {
         renderPeriodsDashboard();
+        checkAdminAccessRights();
     }
   }
 
@@ -208,29 +355,23 @@
     try {
       const response = await fetch(GOOGLE_SHEET_CSV_URL);
       const csvText = await response.text();
-      
       const lines = csvText.split(/\r?\n/);
       const parsedStudents = [];
       
       for (let i = 1; i < lines.length; i++) {
         const name = lines[i].trim();
         if (name) {
-          parsedStudents.push({
-            id: "sheet_s_" + i,
-            name: name
-          });
+          parsedStudents.push({ id: "sheet_s_" + i, name: name });
         }
       }
-      
       masterStudentDatabase = parsedStudents;
-      console.log(`Successfully loaded ${masterStudentDatabase.length} students from Google Sheet.`);
     } catch (err) {
       console.error("Failed to fetch data from Google Sheet:", err);
     }
   }
 
   /* ==========================================================================
-     CLOUD DATA SYNC & REALTIME ENGINES (GLOBAL MULTI-COMPUTER SYNC)
+     CLOUD DATA SYNC & REALTIME ENGINES
      ========================================================================= */
   async function loadDataFromSupabase() {
     try {
@@ -238,24 +379,19 @@
         .from('student_periods')
         .select('user_id, periods_data');
 
-      if (error) { 
-        console.error("Error reading cloud data:", error);
-      }
+      if (error) console.error("Error reading cloud data:", error);
 
       if (data && data.length > 0) {
         let combinedPeriods = [];
         data.forEach(row => {
           if (row.periods_data) {
             const arr = Array.isArray(row.periods_data) ? row.periods_data : [row.periods_data];
-            
-            // Flag periods owned by other accounts so they are excluded from local display options
             const mappedArr = arr.map(p => {
               if (row.user_id !== currentUserUid && !p.id.startsWith('foreign_')) {
                 p.id = 'foreign_' + p.id;
               }
               return p;
             });
-            
             combinedPeriods = combinedPeriods.concat(mappedArr);
           }
         });
@@ -263,10 +399,7 @@
 
         savedPeriods.forEach(period => {
           Object.keys(period.timerStates || {}).forEach(studentId => {
-            const state = period.timerStates[studentId];
-            if (state && state.isRunning) {
-              activeTimers[studentId] = true;
-            }
+            if (period.timerStates[studentId]?.isRunning) activeTimers[studentId] = true;
           });
         });
       } else {
@@ -279,10 +412,7 @@
 
   async function saveToSupabase() {
     if (!currentUserUid) return;
-    
-    // Isolate only the periods created by the current logged-in teacher context to save
     const teacherOwnedPeriods = savedPeriods.filter(p => !p.id.startsWith('foreign_'));
-
     const { error } = await supabaseClient
       .from('student_periods')
       .upsert({ 
@@ -290,10 +420,7 @@
         periods_data: teacherOwnedPeriods,
         updated_at: new Date().toISOString()
       });
-
-    if (error) {
-      console.error("Could not sync data online:", error.message);
-    }
+    if (error) console.error("Could not sync data online:", error.message);
   }
 
   function setupRealtimeSubscription() {
@@ -301,30 +428,18 @@
 
     realtimeChannel = supabaseClient
       .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'student_periods'
-        },
-        (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'student_periods' }, (payload) => {
           if (payload.new && payload.new.periods_data) {
             const incomingData = payload.new.periods_data;
             const incomingPeriodsArray = Array.isArray(incomingData) ? incomingData : [incomingData];
             
             incomingPeriodsArray.forEach(p => {
-              // Ensure periods coming from other rooms are tagged appropriately
               if (payload.new.user_id !== currentUserUid && !p.id.startsWith('foreign_')) {
                 p.id = 'foreign_' + p.id;
               }
-
               const existingIndex = savedPeriods.findIndex(localPeriod => localPeriod.id === p.id);
-              if (existingIndex !== -1) {
-                savedPeriods[existingIndex] = p;
-              } else {
-                savedPeriods.push(p);
-              }
+              if (existingIndex !== -1) savedPeriods[existingIndex] = p;
+              else savedPeriods.push(p);
             });
 
             activeTimers = {};
@@ -336,25 +451,28 @@
 
             if (document.getElementById('dashboardView').style.display === 'block') {
               renderPeriodsDashboard();
+              checkAdminAccessRights();
             } else if (document.getElementById('releasedStudentsView').style.display === 'block') {
               renderReleasedStudentsList();
+            } else if (document.getElementById('searchResultView').style.display === 'block') {
+              const query = document.getElementById('studentSearchInput').value.trim().toLowerCase();
+              if (query !== '') renderSearchResultsWindow(query);
             } else if (document.getElementById('trackingView').style.display === 'block' && activePeriodId) {
               const currentPeriod = savedPeriods.find(p => p.id === activePeriodId);
               if (currentPeriod) {
                 syncUIWithIncomingTimerStates(currentPeriod);
+                if (currentTrackingTab === 'analytics') renderTrackingAnalytics(currentPeriod);
               }
             }
           }
         }
-      )
-      .subscribe();
+      ).subscribe();
   }
 
   function syncUIWithIncomingTimerStates(period) {
     period.studentIds.forEach(studentId => {
       const state = period.timerStates[studentId];
       if (!state) return;
-
       const buttonEl = document.getElementById(`btn-toggle-${studentId}`);
       if (!buttonEl) return;
 
@@ -377,24 +495,53 @@
     globalUIIntervalId = setInterval(() => {
       const isTrackingOpen = document.getElementById('trackingView').style.display === 'block';
       const isReleasedOpen = document.getElementById('releasedStudentsView').style.display === 'block';
+      const isSearchOpen = document.getElementById('searchResultView').style.display === 'block';
+      const isAdminVisible = (currentUserUid === ADMIN_UID && document.getElementById('dashboardView').style.display === 'block');
 
-      if (!isTrackingOpen && !isReleasedOpen) return;
+      if (!isTrackingOpen && !isReleasedOpen && !isSearchOpen && !isAdminVisible) return;
 
       savedPeriods.forEach(period => {
-        if (isTrackingOpen && period.id !== activePeriodId) return;
-
         period.studentIds.forEach(studentId => {
           const state = period.timerStates[studentId];
           if (state && state.isRunning) {
             const currentElapsed = Date.now() - state.lastStartTime;
             
             if (isTrackingOpen && period.id === activePeriodId) {
-              const displayEl = document.getElementById(`display-${studentId}`);
-              if (displayEl) displayEl.innerText = formatMsToTime(currentElapsed);
+              if (currentTrackingTab === 'roster') {
+                const displayEl = document.getElementById(`display-${studentId}`);
+                if (displayEl) displayEl.innerText = formatMsToTime(currentElapsed);
+              } else if (currentTrackingTab === 'analytics') {
+                const progressEl = document.getElementById(`bar-fill-${studentId}`);
+                const labelEl = document.getElementById(`bar-lbl-${studentId}`);
+                if (progressEl && labelEl) {
+                  const maxTime = getMaxTimerValueInPeriod(period);
+                  const percentage = maxTime > 0 ? (currentElapsed / maxTime) * 100 : 0;
+                  progressEl.style.width = `${Math.max(percentage, 2)}%`;
+                  labelEl.innerText = formatMsToTime(currentElapsed);
+                }
+              }
             }
             if (isReleasedOpen) {
               const releasedDisplayEl = document.getElementById(`released-display-${studentId}`);
               if (releasedDisplayEl) releasedDisplayEl.innerText = formatMsToTime(currentElapsed);
+            }
+            if (isAdminVisible) {
+              const adminDisplayEl = document.getElementById(`admin-display-${period.id}-${studentId}`);
+              if (adminDisplayEl) adminDisplayEl.innerText = formatMsToTime(currentElapsed);
+            }
+            if (isSearchOpen) {
+              const searchDisplayEl = document.getElementById(`search-display-${studentId}`);
+              if (searchDisplayEl) {
+                let totalAccumulated = currentElapsed;
+                savedPeriods.forEach(p => {
+                  if (p.id === period.id) return;
+                  const sState = p.timerStates[studentId];
+                  if (sState) {
+                    totalAccumulated += sState.isRunning ? (Date.now() - sState.lastStartTime) : sState.elapsedMs;
+                  }
+                });
+                searchDisplayEl.innerText = "Weekly: " + formatMsToTime(totalAccumulated);
+              }
             }
           }
         });
@@ -416,7 +563,6 @@
           if (!studentData) return;
 
           const currentElapsed = Date.now() - state.lastStartTime;
-          const timeString = formatMsToTime(currentElapsed);
           const standardPeriodName = period.name.replace('foreign_', '');
 
           const row = document.createElement('div');
@@ -427,7 +573,7 @@
               <span class="student-count-badge" style="font-size:0.8rem;">Period: ${standardPeriodName}</span>
             </div>
             <div class="timer-controls-group">
-              <span id="released-display-${studentId}" class="timer-digital-readout">${timeString}</span>
+              <span id="released-display-${studentId}" class="timer-digital-readout">${formatMsToTime(currentElapsed)}</span>
             </div>
           `;
           container.appendChild(row);
@@ -443,8 +589,6 @@
   function renderPeriodsDashboard() {
     const displayContainer = document.getElementById('periodsDisplayContainer');
     displayContainer.innerHTML = '';
-
-    // FILTER OUT FOREIGN PERIODS: Ensure other teachers' setups don't blend into your workspace dashboard
     const myDisplayedPeriods = savedPeriods.filter(p => !p.id.startsWith('foreign_'));
 
     myDisplayedPeriods.forEach(period => {
@@ -452,12 +596,10 @@
       card.className = 'period-dashboard-card';
       card.onclick = () => launchTrackingScreen(period.id); 
       
-      const studentCount = period.studentIds.length;
-
       card.innerHTML = `
         <div class="card-header">
           <h4>${period.name}</h4>
-          <span class="student-count-badge">${studentCount} Students</span>
+          <span class="student-count-badge">${period.studentIds.length} Students</span>
         </div>
         <div class="card-actions">
           <button class="action-link-btn edit-link" onclick="openModalForEdit(event, '${period.id}')">Edit</button>
@@ -478,94 +620,8 @@
     displayContainer.appendChild(buttonCard);
   }
 
-  function loadStudentChecklist(selectedStudentIds = []) {
-    const container = document.getElementById('studentCheckboxContainer');
-    container.innerHTML = '';
-    
-    masterStudentDatabase.forEach(student => {
-      const isChecked = selectedStudentIds.includes(student.id) ? 'checked' : '';
-      const label = document.createElement('label');
-      label.className = 'student-checkbox-item';
-      label.setAttribute('data-student-name', student.name.toLowerCase()); 
-      label.innerHTML = `
-        <input type="checkbox" value="${student.id}" data-name="${student.name}" ${isChecked}>
-        <span>${student.name}</span>
-      `;
-      container.appendChild(label);
-    });
-  }
-
-  function openModalForCreate() {
-    document.getElementById('modalTitle').innerText = "Create New Period";
-    document.getElementById('editingPeriodId').value = ""; 
-    document.getElementById('periodName').value = "";
-    document.getElementById('periodModal').style.display = 'flex';
-    document.getElementById('periodName').focus();
-    loadStudentChecklist(); 
-  }
-
-  function openModalForEdit(event, periodId) {
-    event.stopPropagation(); 
-    const period = savedPeriods.find(p => p.id === periodId);
-    if (!period) return;
-
-    document.getElementById('modalTitle').innerText = "Edit Period";
-    document.getElementById('editingPeriodId').value = period.id;
-    document.getElementById('periodName').value = period.name;
-    document.getElementById('periodModal').style.display = 'flex';
-    document.getElementById('periodName').focus();
-    
-    loadStudentChecklist(period.studentIds);
-  }
-
-  function closeModal() {
-    document.getElementById('periodModal').style.display = 'none';
-  }
-
-  async function savePeriod() {
-    const periodName = document.getElementById('periodName').value.trim();
-    const editingId = document.getElementById('editingPeriodId').value;
-
-    if (periodName === '') {
-      alert('Please enter a period name.');
-      return;
-    }
-    
-    const checkedBoxes = document.querySelectorAll('#studentCheckboxContainer input[type="checkbox"]:checked');
-    const selectedStudentIds = Array.from(checkedBoxes).map(box => box.value);
-
-    if (editingId) {
-      const periodIndex = savedPeriods.findIndex(p => p.id === editingId);
-      if (periodIndex !== -1) {
-        savedPeriods[periodIndex].name = periodName;
-        savedPeriods[periodIndex].studentIds = selectedStudentIds;
-      }
-    } else {
-      const newPeriod = {
-        id: 'per_' + Date.now(),
-        name: periodName,
-        studentIds: selectedStudentIds,
-        timerStates: {} 
-      };
-      savedPeriods.push(newPeriod);
-    }
-
-    renderPeriodsDashboard();
-    closeModal();
-    await saveToSupabase(); 
-  }
-
-  async function deletePeriod(event, periodId) {
-    event.stopPropagation(); 
-    if (confirm("Are you sure you want to delete this period?")) {
-      savedPeriods = savedPeriods.filter(p => p.id !== periodId);
-      renderPeriodsDashboard();
-      await saveToSupabase(); 
-    }
-  }
-
   /* ==========================================================================
-     TIMING TRACKING CONTROLLER LOGIC
+     TIMING TRACKING CONTROLLER & ANALYTICS BAR GRAPH PLOTTER
      ========================================================================= */
   function launchTrackingScreen(periodId) {
     const period = savedPeriods.find(p => p.id === periodId);
@@ -576,11 +632,82 @@
     document.getElementById('trackingPeriodTitle').innerText = period.name;
     document.getElementById('studentSearchInput').value = '';
 
+    switchTrackingTab('roster');
+
     const views = document.querySelectorAll('.app-view');
     views.forEach(v => v.style.display = 'none');
-    
     document.getElementById('trackingView').style.display = 'block';
     renderTrackingRoster(period);
+  }
+
+  function switchTrackingTab(tab) {
+    currentTrackingTab = tab;
+    const rosterTabBtn = document.getElementById('tabRosterBtn');
+    const analyticsTabBtn = document.getElementById('tabAnalyticsBtn');
+    const rosterSection = document.getElementById('trackingRosterSection');
+    const analyticsSection = document.getElementById('trackingAnalyticsSection');
+    const period = savedPeriods.find(p => p.id === activePeriodId);
+
+    if (tab === 'roster') {
+      rosterTabBtn.style.backgroundColor = '#000'; rosterTabBtn.style.color = '#fff';
+      analyticsTabBtn.style.backgroundColor = 'transparent'; analyticsTabBtn.style.color = '#000';
+      rosterSection.style.display = 'block'; analyticsSection.style.display = 'none';
+      if (period) renderTrackingRoster(period);
+    } else {
+      analyticsTabBtn.style.backgroundColor = '#000'; analyticsTabBtn.style.color = '#fff';
+      rosterTabBtn.style.backgroundColor = 'transparent'; rosterTabBtn.style.color = '#000';
+      rosterSection.style.display = 'none'; analyticsSection.style.display = 'block';
+      if (period) renderTrackingAnalytics(period);
+    }
+  }
+
+  function getMaxTimerValueInPeriod(period) {
+    let max = 0;
+    period.studentIds.forEach(id => {
+      const state = period.timerStates[id];
+      if (state) {
+        const val = state.isRunning ? (Date.now() - state.lastStartTime) : state.elapsedMs;
+        if (val > max) max = val;
+      }
+    });
+    return max;
+  }
+
+  function renderTrackingAnalytics(period) {
+    const chartContainer = document.getElementById('analyticsChartContainer');
+    chartContainer.innerHTML = '';
+
+    if (period.studentIds.length === 0) {
+      chartContainer.innerHTML = '<p class="empty-state-text">No data metrics available.</p>';
+      return;
+    }
+
+    const analyticsDataset = period.studentIds.map(studentId => {
+      const studentData = masterStudentDatabase.find(s => s.id === studentId);
+      const state = period.timerStates[studentId] || { elapsedMs: 0, isRunning: false };
+      const currentVal = state.isRunning ? (Date.now() - state.lastStartTime) : state.elapsedMs;
+      return { id: studentId, name: studentData ? studentData.name : "Unknown Student", timeVal: currentVal };
+    });
+
+    analyticsDataset.sort((a, b) => b.timeVal - a.timeVal);
+    const maxTime = analyticsDataset.length > 0 ? analyticsDataset[0].timeVal : 0;
+
+    analyticsDataset.forEach(item => {
+      const barPercentage = maxTime > 0 ? (item.timeVal / maxTime) * 100 : 0;
+      const graphRow = document.createElement('div');
+      graphRow.style.display = 'flex'; graphRow.style.flexDirection = 'column'; graphRow.style.gap = '6px';
+      graphRow.style.textAlign = 'left';
+      graphRow.innerHTML = `
+        <div style="display:flex; justify-content:space-between; font-family:sans-serif; font-size:0.95rem; font-weight:600;">
+          <span>${item.name}</span>
+          <span id="bar-lbl-${item.id}" style="font-family:monospace; color:#555;">${formatMsToTime(item.timeVal)}</span>
+        </div>
+        <div style="width:100%; background-color:#f0f0f0; height:18px; border-radius:3px; overflow:hidden;">
+          <div id="bar-fill-${item.id}" style="width:${Math.max(barPercentage, item.timeVal > 0 ? 2 : 0)}%; background-color:#000000; height:100%; transition:width 0.3s ease;"></div>
+        </div>
+      `;
+      chartContainer.appendChild(graphRow);
+    });
   }
 
   function exitToDashboard() {
@@ -595,7 +722,7 @@
     rosterContainer.innerHTML = '';
 
     if (period.studentIds.length === 0) {
-      rosterContainer.innerHTML = '<p class="empty-state-text">No students added to this period yet. Edit the period to assign roster students.</p>';
+      rosterContainer.innerHTML = '<p class="empty-state-text">No students added to this period yet.</p>';
       return;
     }
 
@@ -614,7 +741,7 @@
       row.className = 'student-timer-row';
       row.setAttribute('data-student-name', studentData.name.toLowerCase()); 
       row.innerHTML = `
-        <span class="timer-student-name">${studentData.name}</span>
+        <span class="timer-student-name" style="text-align: left;">${studentData.name}</span>
         <div class="timer-controls-group">
           <span id="display-${studentId}" class="timer-digital-readout">${timeString}</span>
           <button id="btn-toggle-${studentId}" class="timer-action-btn ${state.isRunning ? 'pause-btn' : 'start-btn'}" onclick="toggleStudentTimer('${studentId}')">
@@ -638,32 +765,21 @@
       const checkboxRows = document.querySelectorAll('#studentCheckboxContainer .student-checkbox-item');
       checkboxRows.forEach(row => {
         const studentName = row.getAttribute('data-student-name');
-        if (studentName.includes(query)) {
-          row.style.setProperty('display', 'flex', 'important');
-        } else {
-          row.style.setProperty('display', 'none', 'important');
-        }
+        if (studentName.includes(query)) row.style.setProperty('display', 'flex', 'important');
+        else row.style.setProperty('display', 'none', 'important');
       });
       return;
     }
 
-    if (query === '') {
-      clearSearchAndReturn();
-      return;
-    }
+    if (query === '') { clearSearchAndReturn(); return; }
 
     if (document.getElementById('searchResultView').style.display === 'none') {
-      if (document.getElementById('trackingView').style.display === 'block') {
-        preSearchScreenState = 'tracking';
-      } else {
-        preSearchScreenState = 'dashboard';
-      }
+      preSearchScreenState = document.getElementById('trackingView').style.display === 'block' ? 'tracking' : 'dashboard';
     }
 
     const views = document.querySelectorAll('.app-view');
     views.forEach(v => v.style.display = 'none');
     document.getElementById('searchResultView').style.display = 'block';
-
     renderSearchResultsWindow(query);
   }
 
@@ -671,12 +787,10 @@
     const resultsContainer = document.getElementById('searchResultsContainer');
     resultsContainer.innerHTML = '';
 
-    const matchedStudents = masterStudentDatabase.filter(student => 
-      student.name.toLowerCase().includes(query)
-    );
+    const matchedStudents = masterStudentDatabase.filter(student => student.name.toLowerCase().includes(query));
 
     if (matchedStudents.length === 0) {
-      resultsContainer.innerHTML = '<p class="empty-state-text">No matching student records found in database.</p>';
+      resultsContainer.innerHTML = '<p class="empty-state-text">No matching student records found.</p>';
       return;
     }
 
@@ -684,15 +798,21 @@
       const assignedPeriods = savedPeriods.filter(p => p.studentIds.includes(student.id)).map(p => p.name.replace('foreign_', ''));
       const periodString = assignedPeriods.length > 0 ? assignedPeriods.join(', ') : 'Unassigned';
 
+      let finalWeeklyTimeMs = 0;
+      savedPeriods.forEach(p => {
+        const state = p.timerStates[student.id];
+        if (state) finalWeeklyTimeMs += state.isRunning ? (Date.now() - sState.lastStartTime) : state.elapsedMs;
+      });
+
       const row = document.createElement('div');
       row.className = 'student-timer-row';
       row.innerHTML = `
-        <div>
+        <div style="text-align: left;">
           <span class="timer-student-name" style="display:block;">${student.name}</span>
           <span class="student-count-badge" style="font-size:0.8rem;">Periods: ${periodString}</span>
         </div>
         <div class="timer-controls-group">
-          <span class="timer-digital-readout" style="min-width:140px; font-size:1.1rem; color:#666666;">Weekly: --:--.-</span>
+          <span id="search-display-${student.id}" class="timer-digital-readout" style="min-width:140px; font-size:1.1rem;">Weekly: ${formatMsToTime(finalWeeklyTimeMs)}</span>
         </div>
       `;
       resultsContainer.appendChild(row);
@@ -708,6 +828,7 @@
     } else {
       document.getElementById('dashboardView').style.display = 'block';
       renderPeriodsDashboard();
+      checkAdminAccessRights();
     }
   }
 
@@ -720,20 +841,12 @@
     if (!state.isRunning) {
       state.isRunning = true;
       state.lastStartTime = Date.now() - state.elapsedMs;
-      if (button) {
-        button.innerText = "Pause";
-        button.classList.remove('start-btn');
-        button.classList.add('pause-btn');
-      }
+      if (button) { button.innerText = "Pause"; button.classList.remove('start-btn'); button.classList.add('pause-btn'); }
       activeTimers[studentId] = true;
     } else {
       state.isRunning = false;
       state.elapsedMs = Date.now() - state.lastStartTime;
-      if (button) {
-        button.innerText = "Start";
-        button.classList.remove('pause-btn');
-        button.classList.add('start-btn');
-      }
+      if (button) { button.innerText = "Start"; button.classList.remove('pause-btn'); button.classList.add('start-btn'); }
       delete activeTimers[studentId];
     }
     saveToSupabase();
@@ -744,21 +857,77 @@
     if (!period) return;
     const state = period.timerStates[studentId];
 
-    state.isRunning = false;
-    state.elapsedMs = 0;
-    state.lastStartTime = null;
+    state.isRunning = false; state.elapsedMs = 0; state.lastStartTime = null;
     delete activeTimers[studentId];
 
     const displayEl = document.getElementById(`display-${studentId}`);
     if (displayEl) displayEl.innerText = "00:00.0";
-    
     const button = document.getElementById(`btn-toggle-${studentId}`);
-    if (button) {
-      button.innerText = "Start";
-      button.classList.remove('pause-btn');
-      button.classList.add('start-btn');
-    }
+    if (button) { button.innerText = "Start"; button.classList.remove('pause-btn'); button.classList.add('start-btn'); }
     saveToSupabase();
+  }
+
+  function loadStudentChecklist(selectedStudentIds = []) {
+    const container = document.getElementById('studentCheckboxContainer');
+    container.innerHTML = '';
+    masterStudentDatabase.forEach(student => {
+      const isChecked = selectedStudentIds.includes(student.id) ? 'checked' : '';
+      const label = document.createElement('label');
+      label.className = 'student-checkbox-item';
+      label.setAttribute('data-student-name', student.name.toLowerCase()); 
+      label.innerHTML = `
+        <input type="checkbox" value="${student.id}" data-name="${student.name}" ${isChecked}>
+        <span>${student.name}</span>
+      `;
+      container.appendChild(label);
+    });
+  }
+
+  function openModalForCreate() {
+    document.getElementById('modalTitle').innerText = "Create New Period";
+    document.getElementById('editingPeriodId').value = ""; document.getElementById('periodName').value = "";
+    document.getElementById('periodModal').style.display = 'flex'; document.getElementById('periodName').focus();
+    loadStudentChecklist(); 
+  }
+
+  function openModalForEdit(event, periodId) {
+    event.stopPropagation(); 
+    const period = savedPeriods.find(p => p.id === periodId);
+    if (!period) return;
+    document.getElementById('modalTitle').innerText = "Edit Period";
+    document.getElementById('editingPeriodId').value = period.id; document.getElementById('periodName').value = period.name;
+    document.getElementById('periodModal').style.display = 'flex'; document.getElementById('periodName').focus();
+    loadStudentChecklist(period.studentIds);
+  }
+
+  function closeModal() { document.getElementById('periodModal').style.display = 'none'; }
+
+  async function savePeriod() {
+    const periodName = document.getElementById('periodName').value.trim();
+    const editingId = document.getElementById('editingPeriodId').value;
+    if (periodName === '') { alert('Please enter a period name.'); return; }
+    
+    const checkedBoxes = document.querySelectorAll('#studentCheckboxContainer input[type="checkbox"]:checked');
+    const selectedStudentIds = Array.from(checkedBoxes).map(box => box.value);
+
+    if (editingId) {
+      const periodIndex = savedPeriods.findIndex(p => p.id === editingId);
+      if (periodIndex !== -1) {
+        savedPeriods[periodIndex].name = periodName;
+        savedPeriods[periodIndex].studentIds = selectedStudentIds;
+      }
+    } else {
+      savedPeriods.push({ id: 'per_' + Date.now(), name: periodName, studentIds: selectedStudentIds, timerStates: {} });
+    }
+    renderPeriodsDashboard(); closeModal(); await saveToSupabase(); 
+  }
+
+  async function deletePeriod(event, periodId) {
+    event.stopPropagation(); 
+    if (confirm("Are you sure you want to delete this period?")) {
+      savedPeriods = savedPeriods.filter(p => p.id !== periodId);
+      renderPeriodsDashboard(); await saveToSupabase(); 
+    }
   }
 
   function formatMsToTime(ms) {
@@ -767,11 +936,7 @@
     let minutes = Math.floor(totalSeconds / 60);
     let seconds = totalSeconds % 60;
     let tenths = Math.floor((ms % 1000) / 100);
-
-    let minStr = minutes < 10 ? '0' + minutes : minutes;
-    let secStr = seconds < 10 ? '0' + seconds : seconds;
-
-    return `${minStr}:${secStr}.${tenths}`;
+    return `${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}.${tenths}`;
   }
 </script>
 
