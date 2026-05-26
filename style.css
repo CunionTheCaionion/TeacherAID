@@ -3,23 +3,22 @@
    ========================================================================== */
 .sidenav {
   height: 100%;
-  width: 240px; /* Locked standard sidebar width */
+  width: 240px;
   position: fixed;
   z-index: 100;
   top: 0;
   left: 0;
   background-color: #000000;
   overflow-x: hidden;
-  padding-top: 40px; /* Slight extra room at the very top */
+  padding-top: 40px;
   box-sizing: border-box;
 }
 
-/* Sidebar Navigation Links (Enlarged and Spread Out) */
 .sidenav a {
-  padding: 22px 28px; /* Increased vertical padding to expand the clickable footprint */
-  margin-bottom: 12px; /* Adds physical structural separation between items */
+  padding: 22px 28px;
+  margin-bottom: 12px;
   text-decoration: none;
-  font-size: 1.35rem; /* Noticeably larger text readability */
+  font-size: 1.35rem;
   font-family: sans-serif;
   color: #818181;
   display: block;
@@ -32,27 +31,25 @@
   background-color: #111111;
 }
 
-/* Remove the margin from the final element so it doesn't cause overflow issues */
 .sidenav a:last-child {
   margin-bottom: 0;
 }
 
 /* ==========================================================================
-   MAIN WORKSPACE LAYOUT FRAMEWORK (FIXES THE HUGE RIGHT GAP)
+   MAIN WORKSPACE LAYOUT FRAMEWORK
    ========================================================================== */
 .main-content-layout {
-  margin-left: 240px; /* Pushes content exactly past the sidebar */
-  width: calc(100% - 240px); /* Forces workspace to expand fully to the right edge */
+  margin-left: 240px;
+  width: calc(100% - 240px);
   box-sizing: border-box;
-  padding: 30px 40px; /* Balanced padding spacing on all sides */
-  display: block; /* Native block flow stops vertical flex compression layout bugs */
+  padding: 30px 40px;
+  display: block;
   background-color: #ffffff;
   min-height: 100vh;
 }
 
-/* Dynamic Panel Views */
 .app-view {
-  display: none; /* Controlled via JS switchView() to toggle block/none */
+  display: none;
   width: 100%;
   box-sizing: border-box;
 }
@@ -63,7 +60,7 @@
 }
 
 /* ==========================================================================
-   GLOBAL SEARCH INPUT (FIXES HEADER OVERLAP)
+   GLOBAL SEARCH INPUT
    ========================================================================== */
 .search-input-container {
   width: 100%;
@@ -124,7 +121,7 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 24px;
   margin-top: 15px;    
-  margin-bottom: 50px; /* Large bottom margin keeps admin panel safely separated */
+  margin-bottom: 40px; 
   width: 100%;
   box-sizing: border-box;
   align-items: start;
@@ -234,11 +231,11 @@
 }
 
 /* ==========================================================================
-   RESTRICTED ADMIN PANEL FIX
+   RESTRICTED ADMIN PANEL
    ========================================================================== */
 #restrictedAdminPanel {
   display: block;
-  clear: both; /* Blocks all elements above from entering this visual row zone */
+  clear: both;
   margin-top: 40px;
   padding: 25px;
   background-color: #fff5f5;
