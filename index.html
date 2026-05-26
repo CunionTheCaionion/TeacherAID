@@ -12,7 +12,9 @@
 
     <div id="startPageLanding" class="start-card-container">
         <div class="start-card-header">
-            <h1 class="start-app-title">Hall Monitor</h1>
+            <div class="start-app-logo-container" style="text-align: center; margin-bottom: 15px;">
+                <img src="YOUR_LOGO_IMAGE_URL_HERE" alt="App Logo" class="start-app-logo" style="max-width: 200px; height: auto; object-fit: contain;">
+            </div>
             <p class="start-app-subtitle">Track, manage, and optimize student runtime metrics seamlessly.</p>
         </div>
         <hr class="start-divider">
@@ -580,7 +582,6 @@
     displayContainer.appendChild(buttonCard);
   }
 
-  // REWRITTEN: Organizes the Dashboard page by separate period clusters with headers
   function renderDashboardAnalytics() {
     const chartContainer = document.getElementById('analyticsChartContainer');
     if(!chartContainer) return;
@@ -590,7 +591,6 @@
       return;
     }
 
-    // Determine absolute maximum time recorded anywhere to scale visual bar graphs correctly
     let overallMaxTime = 0;
     savedPeriods.forEach(period => {
       period.studentIds.forEach(studentId => {
@@ -602,12 +602,10 @@
 
     let validDataFound = false;
 
-    // Iterate structural layouts period by period
     savedPeriods.forEach(period => {
       const cleanPeriodName = period.name.replace('foreign_', '');
       let periodSectionEl = document.getElementById(`dash-period-section-${period.id}`);
 
-      // Filter and build the student roster records active in this single period loop
       let periodStudentsDataset = [];
       period.studentIds.forEach(studentId => {
         const state = period.timerStates[studentId] || { elapsedMs: 0, isRunning: false };
@@ -624,16 +622,13 @@
         }
       });
 
-      // If no student timers have run inside this period, remove old elements and skip header rendering
       if (periodStudentsDataset.length === 0) {
         if (periodSectionEl) periodSectionEl.remove();
         return;
       }
 
-      // Sort students inside this individual period section from high to low duration
       periodStudentsDataset.sort((a, b) => b.timeVal - a.timeVal);
 
-      // Create period section cluster block if it doesn't exist yet
       if (!periodSectionEl) {
         periodSectionEl = document.createElement('div');
         periodSectionEl.id = `dash-period-section-${period.id}`;
@@ -649,7 +644,6 @@
 
       const rowsContainer = document.getElementById(`dash-period-rows-${period.id}`);
 
-      // Render individual progress bar elements inside this specific period context
       periodStudentsDataset.forEach(item => {
         const barPercentage = overallMaxTime > 0 ? (item.timeVal / overallMaxTime) * 100 : 0;
         const rowDomId = `dash-bar-row-${period.id}-${item.id}`;
@@ -678,14 +672,12 @@
         }
       });
 
-      // Clear any layout child nodes for students who might have been removed or completely reset
       Array.from(rowsContainer.children).forEach(child => {
         const matchingId = periodStudentsDataset.find(item => `dash-bar-row-${period.id}-${item.id}` === child.id);
         if (!matchingId) child.remove();
       });
     });
 
-    // Clear loading texts or handle initial empty dashboard states
     if (!validDataFound) {
       chartContainer.innerHTML = '<p class="empty-state-text">No active runtime minutes recorded for today yet.</p>';
     } else {
@@ -784,7 +776,7 @@
       savedPeriods.forEach(p => {
         const state = p.timerStates[student.id];
         if (state) {
-          finalWeeklyTimeMs += state.isRunning ? (Date.now() - sState.lastStartTime) : state.elapsedMs;
+          finalWeeklyTimeMs += state.isRunning ? (Date.now() - state.lastStartTime) : state.elapsedMs;
         }
       });
 
