@@ -7,6 +7,53 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .sidenav {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100vh;
+            padding-top: 40px;
+            padding-bottom: 40px;
+            box-sizing: border-box;
+        }
+        .sidenav-links-wrapper {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            height: 100%;
+        }
+        /* Admin controls styling */
+        .admin-global-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .admin-btn-global {
+            font-family: sans-serif;
+            font-weight: 600;
+            padding: 10px 18px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: background 0.2s;
+        }
+        .admin-btn-clear {
+            background-color: #ff9800;
+            color: white;
+        }
+        .admin-btn-clear:hover {
+            background-color: #e68a00;
+        }
+        .admin-btn-reset-all {
+            background-color: #cc0000;
+            color: white;
+        }
+        .admin-btn-reset-all:hover {
+            background-color: #a30000;
+        }
+    </style>
 </head>
 <body class="start-page-body">
 
@@ -29,12 +76,12 @@
     <div id="mainApplicationWorkspace" style="display: none; width: 100%;">
         
         <div class="sidenav">
-            <a href="#" onclick="switchView('dashboardView')">Home</a>
-            <a href="#" onclick="switchView('accountView')">Account</a>
-            <a href="#" onclick="switchView('settingsView')">Settings</a>
-            <a href="#" onclick="switchView('myStudentsView')">My Students</a>
-            <a href="#" onclick="showReleasedStudentsView()">Released Students</a>
-            <a href="#" onclick="switchToDashboardViewOnly()">Dashboard</a>
+            <div class="sidenav-links-wrapper" style="width: 100%;">
+                <a href="#" onclick="switchView('dashboardView')">Home</a>
+                <a href="#" onclick="switchView('myStudentsView')">My Students</a>
+                <a href="#" onclick="showReleasedStudentsView()">Released Students</a>
+                <a href="#" onclick="switchToDashboardViewOnly()">Dashboard</a>
+            </div>
         </div>
         
         <div class="main-content-layout">
@@ -50,6 +97,12 @@
                 <div id="restrictedAdminPanel" style="display: none;">
                     <h3 style="margin-top: 40px; color: #cc0000; font-family: sans-serif; text-align: center;">🛡️ System Admin Override Panel</h3>
                     <p style="font-size: 0.95rem; color: #555; text-align: center; margin-bottom: 20px; font-family: sans-serif;">Detected active timers across all synced user accounts. Use the overrides below to clear stuck sessions.</p>
+                    
+                    <div class="admin-global-actions">
+                        <button class="admin-btn-global admin-btn-clear" onclick="adminGlobalClearAllActive()">⚠️ Clear All Active Timers</button>
+                        <button class="admin-btn-global admin-btn-reset-all" onclick="adminGlobalResetAllData()">🚨 Reset All Period Data (00:00.0)</button>
+                    </div>
+
                     <div id="adminActiveTimersList" class="student-roster-list"></div>
                 </div>
             </div>
@@ -62,22 +115,6 @@
                 </div>
                 <div id="dashboardAnalyticsSection" class="student-roster-list" style="margin-top: 20px; background: #ffffff; padding: 25px; border: 1px solid #e0e0e0; border-radius: 6px;">
                     <div id="analyticsChartContainer" style="display: flex; flex-direction: column; gap: 20px; width: 100%;"></div>
-                </div>
-            </div>
-
-            <div id="accountView" class="app-view">
-                <div class="line-container">
-                    <span class="line left-line"></span>
-                    <span class="text">Account</span>
-                    <span class="line right-line"></span>
-                </div>
-            </div>
-
-            <div id="settingsView" class="app-view">
-                <div class="line-container">
-                    <span class="line left-line"></span>
-                    <span class="text">Settings</span>
-                    <span class="line right-line"></span>
                 </div>
             </div>
 
@@ -275,10 +312,97 @@
       console.error("Admin cloud override failed:", err.message);
     }
 
+    refreshAllViews();
+  }
+
+  /* NEW: ADMIN GLOBAL CLEAR ACTIVE TIMERS */
+  async function adminGlobalClearAllActive() {
+    if (!confirm("Are you sure you want to pause and force stop ALL active student sessions globally?")) return;
+    try {
+      const { data: allRecords, error: fetchError } = await supabaseClient
+        .from('student_periods')
+        .select('user_id, periods_data');
+
+      if (fetchError) throw fetchError;
+
+      for (const row of allRecords) {
+        if (!row.periods_data) continue;
+        let rowPeriods = Array.isArray(row.periods_data) ? row.periods_data : [row.periods_data];
+        let structuralChange = false;
+
+        rowPeriods.forEach(period => {
+          Object.keys(period.timerStates || {}).forEach(studentId => {
+            if (period.timerStates[studentId].isRunning) {
+              const runDuration = Date.now() - period.timerStates[studentId].lastStartTime;
+              period.timerStates[studentId].elapsedMs += runDuration;
+              period.timerStates[studentId].isRunning = false;
+              period.timerStates[studentId].lastStartTime = null;
+              structuralChange = true;
+            }
+          });
+        });
+
+        if (structuralChange) {
+          await supabaseClient
+            .from('student_periods')
+            .update({ periods_data: rowPeriods, updated_at: new Date().toISOString() })
+            .eq('user_id', row.user_id);
+        }
+      }
+      activeTimers = {};
+      await loadDataFromSupabase();
+      refreshAllViews();
+      alert("All active live running sessions stopped successfully.");
+    } catch (err) {
+      console.error("Global active clear operation failed:", err.message);
+    }
+  }
+
+  /* NEW: ADMIN GLOBAL RESET ALL DATA POINTS */
+  async function adminGlobalResetAllData() {
+    if (!confirm("🚨 WARNING: This will completely wipe all tracking durations to 00:00.0 across all teacher accounts. Student rosters will remain intact. Proceed?")) return;
+    try {
+      const { data: allRecords, error: fetchError } = await supabaseClient
+        .from('student_periods')
+        .select('user_id, periods_data');
+
+      if (fetchError) throw fetchError;
+
+      for (const row of allRecords) {
+        if (!row.periods_data) continue;
+        let rowPeriods = Array.isArray(row.periods_data) ? row.periods_data : [row.periods_data];
+
+        rowPeriods.forEach(period => {
+          Object.keys(period.timerStates || {}).forEach(studentId => {
+            period.timerStates[studentId] = { elapsedMs: 0, isRunning: false, lastStartTime: null };
+          });
+        });
+
+        await supabaseClient
+          .from('student_periods')
+          .update({ periods_data: rowPeriods, updated_at: new Date().toISOString() })
+          .eq('user_id', row.user_id);
+      }
+      activeTimers = {};
+      await loadDataFromSupabase();
+      refreshAllViews();
+      alert("All institutional metrics have been successfully reset to zero baseline metrics.");
+    } catch (err) {
+      console.error("Global baseline architecture reset sequence failed:", err.message);
+    }
+  }
+
+  /* Helper function to automatically update whichever view the user is looking at */
+  function refreshAllViews() {
     renderAdminActiveTimersList();
+    if (document.getElementById('dashboardView').style.display === 'block') renderPeriodsDashboard();
     if (document.getElementById('releasedStudentsView').style.display === 'block') renderReleasedStudentsList();
+    if (document.getElementById('myStudentsView').style.display === 'block') executeInlineSearch();
     if (document.getElementById('analyticsView').style.display === 'block') renderDashboardAnalytics();
-    if (activePeriodId === periodId && document.getElementById('trackingView').style.display === 'block') launchTrackingScreen(periodId);
+    if (activePeriodId && document.getElementById('trackingView').style.display === 'block') {
+      const currentPeriod = savedPeriods.find(p => p.id === activePeriodId);
+      if (currentPeriod) renderTrackingRoster(currentPeriod);
+    }
   }
 
   function switchView(viewId) {
