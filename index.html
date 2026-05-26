@@ -32,7 +32,7 @@
             <a href="#" onclick="switchView('settingsView')">Settings</a>
             <a href="#" onclick="switchView('myStudentsView')">My Students</a>
             <a href="#" onclick="showReleasedStudentsView()">Released Students</a>
-            <a href="#" onclick="switchToDashboardWithAnalytics()">Dashboard</a>
+            <a href="#" onclick="switchToDashboardViewOnly()">Dashboard</a>
         </div>
         
         <div class="main-content-layout">
@@ -45,15 +45,21 @@
                 </div>
                 <div id="periodsDisplayContainer" class="periods-grid"></div>
 
-                <div id="dashboardAnalyticsSection" class="student-roster-list" style="display: none; margin-top: 40px; background: #ffffff; padding: 25px; border: 1px solid #e0e0e0; border-radius: 6px;">
-                    <h3 style="margin-top: 0; font-family: sans-serif; font-weight: 600; text-align: left;">Total Time Out of Classroom (All Syncs)</h3>
-                    <div id="analyticsChartContainer" style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px; width: 100%;"></div>
-                </div>
-
                 <div id="restrictedAdminPanel" style="display: none;">
-                    <h3 style="margin-top: 0; color: #cc0000; font-family: sans-serif; text-align: center;">🛡️ System Admin Override Panel</h3>
+                    <h3 style="margin-top: 40px; color: #cc0000; font-family: sans-serif; text-align: center;">🛡️ System Admin Override Panel</h3>
                     <p style="font-size: 0.95rem; color: #555; text-align: center; margin-bottom: 20px; font-family: sans-serif;">Detected active timers across all synced user accounts. Use the overrides below to clear stuck sessions.</p>
                     <div id="adminActiveTimersList" class="student-roster-list"></div>
+                </div>
+            </div>
+
+            <div id="analyticsView" class="app-view" style="display: none;">
+                <div class="line-container">
+                    <span class="line left-line"></span>
+                    <span class="text">Dashboard</span>
+                    <span class="line right-line"></span>
+                </div>
+                <div id="dashboardAnalyticsSection" class="student-roster-list" style="margin-top: 20px; background: #ffffff; padding: 25px; border: 1px solid #e0e0e0; border-radius: 6px;">
+                    <div id="analyticsChartContainer" style="display: flex; flex-direction: column; gap: 20px; width: 100%;"></div>
                 </div>
             </div>
 
@@ -79,11 +85,9 @@
                     <span class="text">My Students</span>
                     <span class="line right-line"></span>
                 </div>
-                
                 <div class="search-input-container">
                     <input type="search" id="studentSearchInput" class="search-bar-inline" placeholder="Type a name to search..." oninput="executeInlineSearch()">
                 </div>
-                
                 <div id="inlineSearchResultsContainer" class="student-roster-list"></div>
             </div>
 
@@ -98,10 +102,9 @@
 
             <div id="trackingView" class="app-view">
                 <div style="margin-bottom: 25px; text-align: left;">
-                    <button class="back-dashboard-btn" style="margin-bottom: 15px;" onclick="exitToDashboard()">← Back to Dashboard</button>
+                    <button class="back-dashboard-btn" style="margin-bottom: 15px;" onclick="exitToDashboard()">← Back to Home</button>
                     <h2 id="trackingPeriodTitle" class="timer-student-name" style="font-size: 2rem; margin: 0;">Period Name</h2>
                 </div>
-
                 <div id="trackingRosterSection" class="student-roster-list">
                     <div id="trackingRosterContainer" class="student-roster-list" style="padding: 0;"></div>
                 </div>
@@ -127,9 +130,6 @@
     </div>
 
 <script>
-  /* ==========================================================================
-     SUPABASE & GOOGLE SHEETS CONFIGURATION
-     ========================================================================= */
   const SUPABASE_URL = "https://zipxcbebimecwhppsinz.supabase.co"; 
   const SUPABASE_ANON_KEY = "sb_publishable_yBu1oTqbUVj-VJOba8zuyg_Sff_F9vj";
   const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEjSntfQqKHF0IMKgqz3ByZ_2OacOK8Y4k-faFK7ymjxv8AMWxcSfPsyyFyPOSfugQWAyD6yLnuhpq/pub?output=csv";
@@ -151,7 +151,6 @@
           client_id: "502418828163-e3m3oehkr11m1o1l4808jm1qd72vi7f7.apps.googleusercontent.com",
           callback: handleCredentialResponse
         });
-        
         google.accounts.id.renderButton(
           document.getElementById("googleButtonDiv"),
           { theme: "outline", size: "large", width: "340" } 
@@ -276,7 +275,7 @@
 
     renderAdminActiveTimersList();
     if (document.getElementById('releasedStudentsView').style.display === 'block') renderReleasedStudentsList();
-    if (document.getElementById('dashboardView').style.display === 'block') renderDashboardAnalytics();
+    if (document.getElementById('analyticsView').style.display === 'block') renderDashboardAnalytics();
     if (activePeriodId === periodId && document.getElementById('trackingView').style.display === 'block') launchTrackingScreen(periodId);
   }
 
@@ -292,21 +291,18 @@
     const targetView = document.getElementById(viewId);
     if(targetView) targetView.style.display = 'block'; 
     
-    // Default Home link behavior hides the analytics panel
     if (viewId === 'dashboardView') {
-        document.getElementById('dashboardAnalyticsSection').style.display = 'none';
         renderPeriodsDashboard();
         checkAdminAccessRights();
     } else if (viewId === 'myStudentsView') {
         executeInlineSearch(); 
+    } else if (viewId === 'analyticsView') {
+        renderDashboardAnalytics();
     }
   }
 
-  // New specific navigation router handling Dashboard sidebar action explicitly
-  function switchToDashboardWithAnalytics() {
-    switchView('dashboardView');
-    document.getElementById('dashboardAnalyticsSection').style.display = 'block';
-    renderDashboardAnalytics();
+  function switchToDashboardViewOnly() {
+    switchView('analyticsView');
   }
 
   function showReleasedStudentsView() {
@@ -423,6 +419,8 @@
               renderReleasedStudentsList();
             } else if (document.getElementById('myStudentsView').style.display === 'block') {
               executeInlineSearch();
+            } else if (document.getElementById('analyticsView').style.display === 'block') {
+              renderDashboardAnalytics();
             } else if (document.getElementById('trackingView').style.display === 'block' && activePeriodId) {
               const currentPeriod = savedPeriods.find(p => p.id === activePeriodId);
               if (currentPeriod) {
@@ -462,13 +460,12 @@
       const isTrackingOpen = document.getElementById('trackingView').style.display === 'block';
       const isReleasedOpen = document.getElementById('releasedStudentsView').style.display === 'block';
       const isMyStudentsOpen = document.getElementById('myStudentsView').style.display === 'block';
-      const isAnalyticsOpen = document.getElementById('dashboardAnalyticsSection').style.display === 'block';
+      const isAnalyticsOpen = document.getElementById('analyticsView').style.display === 'block';
       const isAdminVisible = (currentUserUid === ADMIN_UID && isDashboardOpen);
 
-      if (!isDashboardOpen && !isTrackingOpen && !isReleasedOpen && !isMyStudentsOpen) return;
+      if (!isDashboardOpen && !isTrackingOpen && !isReleasedOpen && !isMyStudentsOpen && !isAnalyticsOpen) return;
 
-      // Only re-render bar graphics if the view section is visible right now
-      if (isDashboardOpen && isAnalyticsOpen) {
+      if (isAnalyticsOpen) {
          renderDashboardAnalytics();
       }
 
@@ -583,6 +580,7 @@
     displayContainer.appendChild(buttonCard);
   }
 
+  // REWRITTEN: Organizes the Dashboard page by separate period clusters with headers
   function renderDashboardAnalytics() {
     const chartContainer = document.getElementById('analyticsChartContainer');
     if(!chartContainer) return;
@@ -592,64 +590,108 @@
       return;
     }
 
-    let unifiedStudentTimeMap = {};
-
+    // Determine absolute maximum time recorded anywhere to scale visual bar graphs correctly
+    let overallMaxTime = 0;
     savedPeriods.forEach(period => {
       period.studentIds.forEach(studentId => {
         const state = period.timerStates[studentId] || { elapsedMs: 0, isRunning: false };
         const currentVal = state.isRunning ? (Date.now() - state.lastStartTime) : state.elapsedMs;
-        if (!unifiedStudentTimeMap[studentId]) {
-          unifiedStudentTimeMap[studentId] = 0;
-        }
-        unifiedStudentTimeMap[studentId] += currentVal;
+        if (currentVal > overallMaxTime) overallMaxTime = currentVal;
       });
     });
 
-    const analyticsDataset = Object.keys(unifiedStudentTimeMap).map(studentId => {
-      const studentData = masterStudentDatabase.find(s => s.id === studentId);
-      return { id: studentId, name: studentData ? studentData.name : "Unknown Student", timeVal: unifiedStudentTimeMap[studentId] };
-    });
+    let validDataFound = false;
 
-    const displayDataset = analyticsDataset.filter(item => item.timeVal > 0);
-    displayDataset.sort((a, b) => b.timeVal - a.timeVal);
+    // Iterate structural layouts period by period
+    savedPeriods.forEach(period => {
+      const cleanPeriodName = period.name.replace('foreign_', '');
+      let periodSectionEl = document.getElementById(`dash-period-section-${period.id}`);
 
-    if (displayDataset.length === 0) {
-      chartContainer.innerHTML = '<p class="empty-state-text">No active runtime minutes recorded for today yet.</p>';
-      return;
-    }
+      // Filter and build the student roster records active in this single period loop
+      let periodStudentsDataset = [];
+      period.studentIds.forEach(studentId => {
+        const state = period.timerStates[studentId] || { elapsedMs: 0, isRunning: false };
+        const timeVal = state.isRunning ? (Date.now() - state.lastStartTime) : state.elapsedMs;
+        
+        if (timeVal > 0) {
+          const studentData = masterStudentDatabase.find(s => s.id === studentId);
+          periodStudentsDataset.push({
+            id: studentId,
+            name: studentData ? studentData.name : "Unknown Student",
+            timeVal: timeVal
+          });
+          validDataFound = true;
+        }
+      });
 
-    const maxTime = displayDataset[0].timeVal;
-    
-    if (chartContainer.querySelector('.empty-state-text') || chartContainer.children.length !== displayDataset.length) {
-      chartContainer.innerHTML = '';
-    }
-
-    displayDataset.forEach(item => {
-      const barPercentage = maxTime > 0 ? (item.timeVal / maxTime) * 100 : 0;
-      let rowEl = document.getElementById(`dash-bar-row-${item.id}`);
-      
-      if (!rowEl) {
-        rowEl = document.createElement('div');
-        rowEl.id = `dash-bar-row-${item.id}`;
-        rowEl.style.display = 'flex'; rowEl.style.flexDirection = 'column'; rowEl.style.gap = '6px';
-        rowEl.style.textAlign = 'left'; rowEl.style.width = '100%';
-        rowEl.innerHTML = `
-          <div style="display:flex; justify-content:space-between; font-family:sans-serif; font-size:0.95rem; font-weight:600; width:100%;">
-            <span>${item.name}</span>
-            <span id="bar-lbl-${item.id}" style="font-family:monospace; color:#555;">${formatMsToTime(item.timeVal)}</span>
-          </div>
-          <div style="width:100%; background-color:#f0f0f0; height:18px; border-radius:3px; overflow:hidden;">
-            <div id="bar-fill-${item.id}" style="width:${Math.max(barPercentage, 2)}%; background-color:#000000; height:100%; transition:width 0.1s linear;"></div>
-          </div>
-        `;
-        chartContainer.appendChild(rowEl);
-      } else {
-        const fillEl = document.getElementById(`bar-fill-${item.id}`);
-        const lblEl = document.getElementById(`bar-lbl-${item.id}`);
-        if (fillEl) fillEl.style.width = `${Math.max(barPercentage, 2)}%`;
-        if (lblEl) lblEl.innerText = formatMsToTime(item.timeVal);
+      // If no student timers have run inside this period, remove old elements and skip header rendering
+      if (periodStudentsDataset.length === 0) {
+        if (periodSectionEl) periodSectionEl.remove();
+        return;
       }
+
+      // Sort students inside this individual period section from high to low duration
+      periodStudentsDataset.sort((a, b) => b.timeVal - a.timeVal);
+
+      // Create period section cluster block if it doesn't exist yet
+      if (!periodSectionEl) {
+        periodSectionEl = document.createElement('div');
+        periodSectionEl.id = `dash-period-section-${period.id}`;
+        periodSectionEl.style.marginBottom = '35px';
+        periodSectionEl.innerHTML = `
+          <h3 style="margin: 0 0 15px 0; font-family: sans-serif; font-weight: 600; text-align: left; color: #111; border-bottom: 2px solid #eaeaea; padding-bottom: 8px;">
+            ${cleanPeriodName}
+          </h3>
+          <div id="dash-period-rows-${period.id}" style="display: flex; flex-direction: column; gap: 18px; width: 100%;"></div>
+        `;
+        chartContainer.appendChild(periodSectionEl);
+      }
+
+      const rowsContainer = document.getElementById(`dash-period-rows-${period.id}`);
+
+      // Render individual progress bar elements inside this specific period context
+      periodStudentsDataset.forEach(item => {
+        const barPercentage = overallMaxTime > 0 ? (item.timeVal / overallMaxTime) * 100 : 0;
+        const rowDomId = `dash-bar-row-${period.id}-${item.id}`;
+        let rowEl = document.getElementById(rowDomId);
+
+        if (!rowEl) {
+          rowEl = document.createElement('div');
+          rowEl.id = rowDomId;
+          rowEl.style.display = 'flex'; rowEl.style.flexDirection = 'column'; rowEl.style.gap = '6px';
+          rowEl.style.textAlign = 'left'; rowEl.style.width = '100%';
+          rowEl.innerHTML = `
+            <div style="display:flex; justify-content:space-between; font-family:sans-serif; font-size:0.95rem; font-weight:600; width:100%;">
+              <span>${item.name}</span>
+              <span id="bar-lbl-${period.id}-${item.id}" style="font-family:monospace; color:#555;">${formatMsToTime(item.timeVal)}</span>
+            </div>
+            <div style="width:100%; background-color:#f0f0f0; height:18px; border-radius:3px; overflow:hidden;">
+              <div id="bar-fill-${period.id}-${item.id}" style="width:${Math.max(barPercentage, 2)}%; background-color:#000000; height:100%; transition:width 0.1s linear;"></div>
+            </div>
+          `;
+          rowsContainer.appendChild(rowEl);
+        } else {
+          const fillEl = document.getElementById(`bar-fill-${period.id}-${item.id}`);
+          const lblEl = document.getElementById(`bar-lbl-${period.id}-${item.id}`);
+          if (fillEl) fillEl.style.width = `${Math.max(barPercentage, 2)}%`;
+          if (lblEl) lblEl.innerText = formatMsToTime(item.timeVal);
+        }
+      });
+
+      // Clear any layout child nodes for students who might have been removed or completely reset
+      Array.from(rowsContainer.children).forEach(child => {
+        const matchingId = periodStudentsDataset.find(item => `dash-bar-row-${period.id}-${item.id}` === child.id);
+        if (!matchingId) child.remove();
+      });
     });
+
+    // Clear loading texts or handle initial empty dashboard states
+    if (!validDataFound) {
+      chartContainer.innerHTML = '<p class="empty-state-text">No active runtime minutes recorded for today yet.</p>';
+    } else {
+      const fallbackText = chartContainer.querySelector('.empty-state-text');
+      if (fallbackText) fallbackText.remove();
+    }
   }
 
   function launchTrackingScreen(periodId) {
@@ -742,7 +784,7 @@
       savedPeriods.forEach(p => {
         const state = p.timerStates[student.id];
         if (state) {
-          finalWeeklyTimeMs += state.isRunning ? (Date.now() - state.lastStartTime) : state.elapsedMs;
+          finalWeeklyTimeMs += state.isRunning ? (Date.now() - sState.lastStartTime) : state.elapsedMs;
         }
       });
 
