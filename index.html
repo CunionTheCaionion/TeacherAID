@@ -960,11 +960,51 @@
     const container = document.getElementById('studentCheckboxContainer');
     if(!container) return;
     container.innerHTML = '';
+
+    // 1. Create and insert a search bar at the very top of the checklist container
+    const searchWrapper = document.createElement('div');
+    searchWrapper.style.position = 'sticky';
+    searchWrapper.style.top = '0';
+    searchWrapper.style.background = '#fff';
+    searchWrapper.style.paddingBottom = '10px';
+    searchWrapper.style.marginBottom = '10px';
+    searchWrapper.style.borderBottom = '1px solid #eee';
+    searchWrapper.style.zIndex = '10';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = '🔍 Search students in this list...';
+    searchInput.style.width = '100%';
+    searchInput.style.padding = '8px';
+    searchInput.style.borderRadius = '4px';
+    searchInput.style.border = '1px solid #ccc';
+    searchInput.style.boxSizing = 'border-box';
+
+    // 2. Add an event listener to handle the real-time filtering
+    searchInput.oninput = function() {
+      const filterQuery = searchInput.value.trim().toLowerCase();
+      const items = container.querySelectorAll('.student-checkbox-item');
+      
+      items.forEach(item => {
+        const studentName = item.getAttribute('data-student-name') || '';
+        if (studentName.includes(filterQuery)) {
+          item.style.setProperty('display', 'flex', 'important');
+        } else {
+          item.style.setProperty('display', 'none', 'important');
+        }
+      });
+    };
+
+    searchWrapper.appendChild(searchInput);
+    container.appendChild(searchWrapper);
+
+    // 3. Render the student checkboxes below the search bar
     masterStudentDatabase.forEach(student => {
       const isChecked = selectedStudentIds.includes(student.id) ? 'checked' : '';
       const label = document.createElement('label');
       label.className = 'student-checkbox-item';
       label.setAttribute('data-student-name', student.name.toLowerCase()); 
+      label.style.display = 'flex'; // Ensures matching structural layout
       label.innerHTML = `
         <input type="checkbox" value="${student.id}" data-name="${student.name}" ${isChecked}>
         <span>${student.name}</span>
